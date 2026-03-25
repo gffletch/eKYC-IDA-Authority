@@ -16,6 +16,14 @@ The aim is to ensure that this standard is designed to be modular and extendable
 - Children in alternative care where legal guardianship may transfer due to changes in care pathways over time.​
 - Teens or older minors participating in progressive assent scenarios (e.g., medical research or data consent), where consent may come from both legal guardian and mature minor, jointly or conditionally. (factor in Rune’s requirements)
 
+
+**Delegated authority for adults who are unable to take care of their own interests:**
+For example elderly people who struggle to use computers or mobile phones properly, or other adults who are unable to care for themselves due to mental health issues or other challenges. Use cases may for instance be access to financial services or health services.
+
+**Delegated authority on behalf of an organization:**
+An employee or other person who can represent an organization towards online services. The organization might be authorized to represent another organization so here a delegation chain may be interesting.
+
+
 **Delegated authority for AI agents:**
 - AI systems acting for individuals or entities in online transactions, customer support, or data processing, bounded by explicit credentials, purpose limitations, and transparency requirements. Take into account https://openid.net/new-whitepaper-tackles-ai-agent-identity-challenges/
 - SaaS platforms or B2B ecosystems where an organisation delegates an AI agent to act under contractual or policy-based rules, with secure, auditable flows and instant revocation.
@@ -69,8 +77,21 @@ This section lists the standards and specifications referenced in this document,
 - ISO/IEC 29115 (Entity authentication assurance) - currently being updated - The standard was published in April 2013 and is currently under systematic review, with the status "International Standard to be revised" as of May 2024. A new working draft, ISO/IEC WD 29115.3, is under development and is intended to replace ISO/IEC 29115:2013. The standard is recognized internationally, with identical versions published by various national standards bodies, including NEN, BSI, CEI UNI, UNI CEI, INCITS, and PN. It is also referenced by other standards such as ISO/IEC 27001:2013, ISO/IEC 19792:2009, and ISO/IEC 29100:2011.
 - AI Act, Digital Operational Resilience Act, GDPR, DSA, AML, COPPA (as applicable)
 
-## Architecture and Roles ##
-To be added - a description of the standard’s core architecture, including actors (delegators, delegates, authorization server, resource server, custodians, AI agents, etc.), their responsibilities, and how they interact in delegated authority workflows.
+## Architecture ##
+We intend to deliver an architecture that describe the following:
+- How a delegated authority is created?
+  - Here we must describe an overall process, not the details.
+  - Which requirements must be fulfulled to establish trust to the delegated authority?
+- A data model that describe a delegated authority
+- (Probably several) models to communicate delegated authority
+  - How they can be included in ID Tokens and Access Tokens
+  - Inclusion in the OIDC User Info endpoint
+  - Should we describe an attestation that verifies a delegated autority? How would that work?
+- Revocation of delegated authority
+  - We probably must describe both a manual process and some sort of expiration
+
+## Roles ##
+To be added - a description of actors (delegators, delegates, authorization server, resource server, custodians, AI agents, etc.), their responsibilities, and how they interact in delegated authority workflows.
 
 ## Functional and Security Requirements ##
 Detailed requirements for:
