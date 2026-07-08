@@ -1,10 +1,15 @@
 # Delegated Authorization Reference Architecture
 
-**Working draft v2.4 — Relationship, Authority, Objective, Obligations, and Constraints**
+**Working draft v2.5 — Relationship, Authority, Objective, Obligations, and Constraints**
 
 *A framework for expressing delegated authorization across human, organizational, and AI workload contexts, building on IETF and OpenID Foundation specifications.*
 
 *This file replaces the prior `reference_architecture_v1.1.md`. Going forward, the version is carried in this document header and in the per-revision changelog below; the filename is stable across revisions.*
+
+**Changelog (v2.4 → v2.5):**
+- **Structural reorganization — the Purpose Object definition moved from §6 (Obligations) to §9 (Objective); no normative or wire change.** The structured `purpose` object's canonical shape definition and base purpose-class vocabulary were added at v1.3 as **§6.6 "Purpose Classes"** while purpose was a field of Obligations. When v2.0 relocated `purpose` onto the Objective, that definition physically stayed in Section 6, with Section 9 pointing back to it — leaving the Objective's own purpose field defined in a different component's section. This revision moves the definition into a rewritten **§9.4 "The Purpose Object"** (consolidated with the former §9.4 relocation note), making Section 9 the single self-contained home for the Objective and everything it carries. The `kind`/`params`/`display` shape, the five base purpose classes, and the inert posture (§9.2) are **unchanged** — only the location changed.
+- **Renumbering:** former **§6.6 "Purpose Classes" removed**; former **§6.7 "Terminal Conditions on Obligations" renumbered to §6.6**. All body cross-references swept — pointers to the terminal-conditions section (§6.1, §6.2, §8.3, §9.4, §9.6) now read §6.6; pointers to the purpose shape (§6.1, §6.2, §9.1, §11.9) now read §9.4. Historical changelog entries retain the section numbers valid at their revision.
+- **Version:** no component added or removed, no JWT wire shape or normative rule changed — a document-structure change with no behavioral effect. Stamped a **minor** bump for cross-reference traceability, since section numbers are the cross-document reference interface (CLAUDE.md §4.6).
 
 **Changelog (v2.3 → v2.4):**
 - **New §5.5.1 — Scope Matching Semantics (normative; addresses review finding H2).** v2.3 and earlier left `permission.scope_domain` a free-form URI while every verification flow said to confirm an act was "within scope," with no defined rule for what "within" meant — so the outermost authority boundary was effectively unenforceable as specified. §5.5.1 resolves this by **demoting `scope_domain` to an advisory categorization/audit label** that a verifier MUST NOT match lexically (no prefix, substring, or path-containment), and **moving the enforceable "within authority" test onto a typed vocabulary with defined comparison** — the RFC 9396 RAR type registry (§6.3): an Obligation is within the derivative authority when its RAR `type` is admitted by the authority under **exact registered-identifier equality** (value-space, not lexical). `further_delegation.sub_scopes` is the enumerated delegable subset (same equality); for the delegatee's own exercise the enforceable bound remains Obligations + Constraints (validated at issuance, re-checked at the commit boundary), and any per-type gate ahead of a formed Obligation is a profile concern. §8.1 step 7 and the §10.1/§10.2 scenario "within scope" steps were updated to the type-admission rule. The `scope_override` interaction (§4.8, Pattern B) is flagged as unreconciled and left to the separate M1 decision (§12.2). **Value-space discipline** follows the Mission-Bound Authorization suite's Common Constraint subset/intersection approach (§13). No wire-structure change (a normative clarification of matching semantics; `scope_domain` and `sub_scopes` are unchanged in shape) → **minor** bump.
@@ -663,9 +668,9 @@ The Obligations section of the Task JWT defines the *essential* elements of the 
 
 Thus: a hotel booking's destination and dates are Obligations. Its budget, brand allowlist, and proximity to a landmark are Constraints.
 
-A third category — **completion definition** — also belongs in Obligations: elements that specify *when an obligation is satisfied or discharged*, rather than bounding how it may be performed. Removing a completion definition changes the task from a bounded, purpose-scoped action into an open-ended grant, which is a change in meaning, not merely a relaxation of constraints. See §6.7.
+A third category — **completion definition** — also belongs in Obligations: elements that specify *when an obligation is satisfied or discharged*, rather than bounding how it may be performed. Removing a completion definition changes the task from a bounded, purpose-scoped action into an open-ended grant, which is a change in meaning, not merely a relaxation of constraints. See §6.6.
 
-Obligations and Constraints share the same Task JWT envelope and are bound together cryptographically, structurally, by scope, and at the commit boundary, as specified in §3.1. The runtime authorization decision is on the bundle, not on either component in isolation. The *why* of the bundle — its declared purpose, and the umbrella act it executes under — is carried by the Objective (§9), not by Obligations. As of v2.0 the structured `purpose` object has moved from Obligations to the Objective (§9.4); §6.6 is retained as the canonical definition of the purpose object's shape, which the Objective reuses.
+Obligations and Constraints share the same Task JWT envelope and are bound together cryptographically, structurally, by scope, and at the commit boundary, as specified in §3.1. The runtime authorization decision is on the bundle, not on either component in isolation. The *why* of the bundle — its declared purpose, and the umbrella act it executes under — is carried by the Objective (§9), not by Obligations. As of v2.0 the structured `purpose` object has moved from Obligations to the Objective (§9.4), where its shape and the base purpose-class vocabulary are now defined.
 
 ### 6.2 Structure
 
@@ -674,14 +679,14 @@ The `obligations` object contains:
 - `composition_logic` — `and` (all items must be performed) or `or` (any one item satisfies the task)
 - `items` — array of obligation entries
 
-> **Moved in v2.0.** The `purpose` field is no longer carried on `obligations`. It is now a sub-claim of the Objective (§9.4). A Task JWT that needs to declare purpose carries it under an inline `objective` claim (§9.3, §9.6) or by reference to a standalone `objective+jwt`. Deployments that emitted `obligations.purpose` under v1.1–v1.4 SHOULD treat that field as an inline Objective `purpose` with no change in wire shape. The object's structure is defined in §6.6.
+> **Moved in v2.0.** The `purpose` field is no longer carried on `obligations`. It is now a sub-claim of the Objective (§9.4). A Task JWT that needs to declare purpose carries it under an inline `objective` claim (§9.3, §9.6) or by reference to a standalone `objective+jwt`. Deployments that emitted `obligations.purpose` under v1.1–v1.4 SHOULD treat that field as an inline Objective `purpose` with no change in wire shape. The object's structure is defined in §9.4.
 
 Each obligation entry contains:
 
 - `obligation_id` — unique within the Task JWT, used as the target of constraints
 - `type` — RFC 9396 RAR type identifier (shared registry with OAuth RAR)
 - Type-specific fields per the RAR type definition
-- `terminal_when` (optional) — completion event definition specifying when this obligation is satisfied and no further authorization may be granted under it; see §6.7
+- `terminal_when` (optional) — completion event definition specifying when this obligation is satisfied and no further authorization may be granted under it; see §6.6
 
 ### 6.3 RAR Type Reuse
 
@@ -714,45 +719,7 @@ For composite tasks like "find hotel, then book it," sequencing is implicit in `
 
 Each field on the obligation is essential: the locations, dates, guest count, and room count cannot be omitted without making the task undefined. (Prior to v2.0 this `obligations` object also carried a `purpose` field; as of v2.0 that purpose is declared in the Objective — see §9.6 and Scenario A, §10.1 — and no longer sits on `obligations`.)
 
-### 6.6 Purpose Classes
-
-> **v2.0 note.** This section defines the *shape* of the structured purpose object. As of v2.0 the object is a sub-claim of the Objective (§9.4), not of `obligations`, and it is **inert with respect to authority** (§9.2). The references below to "governance-shaping params," "purpose-validity evaluation at commit time," and "equivalent to dropping a constraint" describe the v1.3 posture and are **superseded** by the inert property: no purpose param gates this delegation's authority. They are retained here, struck through in effect, only so the shape definition and the worked example remain readable; see §9.4 for the authoritative current posture. Resource-side policy MAY still consult the recorded purpose out of band (§9.2), which is not authority-gating.
-
-The purpose object is an optional structured object that characterizes the declared intent of the delegation. When present, it MUST contain `kind` and MAY contain `params` and `display`:
-
-- `kind` — a URI identifying the purpose class. Purpose class URIs follow the same namespace convention as relationship types (§4.3) and MAY be registered under the `urn:ietf:params:delegation:purpose:` prefix for common classes, or under deployment-specific namespaces for domain-specific cases. A purpose class URI MAY be dereferenced to retrieve a **purpose catalog entry** describing the expected `params` schema, which parameters are governance-shaping, and optional evaluation predicates.
-
-- `params` (optional) — an object carrying purpose-instance parameters. A purpose catalog entry for each `kind` MAY describe the meaning of each parameter for consent rendering and audit. **(v2.0: superseded posture.)** Under v1.3 a catalog could mark params as *governance-shaping* (affecting authority evaluation) versus *audit-only*, and verifiers were required not to ignore governance-shaping params. The inert property (§9.2) retires that distinction: no purpose param gates this delegation's authority. All params are audit-and-consent material. A resource-side policy MAY consult them out of band for its own decisions (§9.2), but that is the resource's policy, not this delegation's authority.
-
-- `display` (optional) — a human-readable description for audit trails and consent interfaces. Replaces the former string value of the `purpose` field: deployments that issued Task JWTs with a `purpose` string under v1.1 or v1.2 SHOULD treat that string as `{ "display": "<string>" }` with no `kind` or `params`.
-
-**Base purpose class vocabulary.** The following purpose class URIs are pre-registered for common delegation scenarios. The registry is extensible; profiles and deployments MAY register additional classes under their own namespaces, with promotion to the base registry following the same process as relationship types (§4.3).
-
-| Class URI | Meaning | Example governance-shaping params |
-|-----------|---------|-----------------------------------|
-| `urn:ietf:params:delegation:purpose:travel-booking` | Travel arrangement on behalf of delegator | `scope` (accommodation / transport / all), `event_type` |
-| `urn:ietf:params:delegation:purpose:financial-transaction` | Payment or financial operation | `transaction_class`, `counterparty_type` |
-| `urn:ietf:params:delegation:purpose:record-disclosure` | Release of records to a third party | `record_type`, `recipient_context`, `disclosure_event` |
-| `urn:ietf:params:delegation:purpose:medical-administration` | Clinical task in a patient care context | `care_domain`, `patient_context` |
-| `urn:ietf:params:delegation:purpose:scheduling` | Calendar or appointment management | `scope`, `subject_context` |
-
-**Relationship to commit-boundary validity (v2.0: corrected).** Under the inert property (§9.2), purpose is **not** a commit-boundary gate. Commit-boundary validity (§8.3) is decided by the status signals of the enforceable components: Relationship/Authority liveness, Constraint satisfaction and trigger-based expiry (§7.7), and Obligation discharge via `terminal_when` (§6.7). Where a deployment wants a delegation to become inert when its declared purpose no longer holds, the bounding mechanism is an enforceable one — typically a `terminal_when` on the Obligation or an `expires_on_event` Constraint — *not* the purpose object. The purpose object records the intent for consent and audit; a resource-side PDP MAY consult it out of band for the resource's own policy (e.g., an AuthZen PDP reading delegation evidence from its `context` field), but that consultation does not gate this delegation's authority and is outside the binding chain.
-
-**Example: record disclosure.** In the Maya / Theo guardianship scenario (vaccinations released for school enrollment), the bounded-in-time behavior — the release being valid only while enrollment is in progress — is enforced by the Obligation's `terminal_when` (§6.7), which discharges the obligation when enrollment completes or is cancelled. The purpose object's `recipient_context: "school_enrollment"` param is the *inert audit record* of why the release was authorized; it is what an auditor reads to understand intent, not what a verifier evaluates to permit or deny. This is the cleavage the v2.0 Objective makes explicit: enforcement lives in the Obligation and Constraints; declared intent lives, inertly, in the Objective.
-
-```json
-"purpose": {
-  "kind": "urn:ietf:params:delegation:purpose:record-disclosure",
-  "params": {
-    "record_type": "vaccination_records",
-    "recipient_context": "school_enrollment",
-    "disclosure_event": "ENR-2026-04582"
-  },
-  "display": "Release vaccination records for Theo's school enrollment"
-}
-```
-
-### 6.7 Terminal Conditions on Obligations
+### 6.6 Terminal Conditions on Obligations
 
 Some obligations have an inherent completion event — a point at which the task is semantically done regardless of calendar expiry or any externally-imposed constraint. For these obligations, the completion event is part of the obligation's *definition*, not a performance bound on it. The optional `terminal_when` sub-field on an obligation item captures this.
 
@@ -760,7 +727,7 @@ Some obligations have an inherent completion event — a point at which the task
 
 **Relationship to §7.7 trigger-based expiry.** Obligation-level terminal conditions and constraint-level trigger-based expiry are complementary, not overlapping:
 
-| | `terminal_when` (§6.7 — Obligation item) | `expires_on_event` (§7.7 — Constraint) |
+| | `terminal_when` (§6.6 — Obligation item) | `expires_on_event` (§7.7 — Constraint) |
 |---|---|---|
 | Authored by | Delegator, as part of task definition | Any constraint author: delegator, platform, regulatory, judicial |
 | Semantics | Obligation *satisfied* — task complete | Obligation *voided* — task invalid |
@@ -1033,9 +1000,9 @@ Three properties follow from this principle:
 
 **Commit-time, not issuance-time.** A verifier that checked status only at issuance and cached the result for the lifetime of the cryptographic binding would defeat the purpose of the status signal. Verifiers MUST consult the status signal at the moment of action, subject to the cache bounds the status response itself declares. For high-stakes profiles (life-safety, large-value financial signing, child-welfare safeguarding) the cache bounds are tight; for low-stakes profiles they may be looser. §8.4 specifies the maximum enforcement window.
 
-**Status signals beyond revocation.** Revocation — an explicit, issuer-signed assertion that a component is no longer valid — is the simplest status signal and is specified concretely in §8.4. The principle covers more than revocation. Trigger-based expiry (§7.7) is a status signal embedded in a Constraint that may fire without any action by the issuer. Tightening of Constraints by an external authority (regulatory body, court) is a status signal expressed as a layered overlay rather than as a revocation. Silent lapse of the underlying Authority (an employment ending, a credentialing body withdrawing a privilege) may be expressed either as a revocation event from the issuer or as an out-of-band status reference the verifier consults. Obligation discharge via `terminal_when` (§6.7) is a fourth instance: a status signal embedded in an Obligation item that fires when the task's inherent completion event occurs, independently of any constraint tightening or issuer revocation action. Discharge differs from the other instances in audit semantics — it signals task completion rather than task invalidity — but the verifier's commit-boundary obligation is identical: check the signal, and if it has fired, deny the request.
+**Status signals beyond revocation.** Revocation — an explicit, issuer-signed assertion that a component is no longer valid — is the simplest status signal and is specified concretely in §8.4. The principle covers more than revocation. Trigger-based expiry (§7.7) is a status signal embedded in a Constraint that may fire without any action by the issuer. Tightening of Constraints by an external authority (regulatory body, court) is a status signal expressed as a layered overlay rather than as a revocation. Silent lapse of the underlying Authority (an employment ending, a credentialing body withdrawing a privilege) may be expressed either as a revocation event from the issuer or as an out-of-band status reference the verifier consults. Obligation discharge via `terminal_when` (§6.6) is a fourth instance: a status signal embedded in an Obligation item that fires when the task's inherent completion event occurs, independently of any constraint tightening or issuer revocation action. Discharge differs from the other instances in audit semantics — it signals task completion rather than task invalidity — but the verifier's commit-boundary obligation is identical: check the signal, and if it has fired, deny the request.
 
-Among the *obligation-level* signals, only `terminal_when` (§6.7) has a concrete observation mechanism specified in this version. The other obligation-level cases listed earlier in this section (the targeted resource no longer exists, an implicit precondition was invalidated, the act was already completed by another party) are illustrative of the commit-boundary principle rather than fully specified mechanisms; the means by which a verifier observes them is deliberately left to profiles and to the *Execution Layer*, and the principle should not be read as a claim that the base specification already defines how each is surfaced.
+Among the *obligation-level* signals, only `terminal_when` (§6.6) has a concrete observation mechanism specified in this version. The other obligation-level cases listed earlier in this section (the targeted resource no longer exists, an implicit precondition was invalidated, the act was already completed by another party) are illustrative of the commit-boundary principle rather than fully specified mechanisms; the means by which a verifier observes them is deliberately left to profiles and to the *Execution Layer*, and the principle should not be read as a claim that the base specification already defines how each is surfaced.
 
 The specification accommodates all of these by making the status signal a per-component property and letting profiles choose the concrete mechanism.
 
@@ -1120,7 +1087,7 @@ When a delegator says "handle the family renewals this week" or "book my anniver
 The **Objective** is the component that carries these declared facts:
 
 - `action` — the umbrella act the delegation is to accomplish. Structured as a `kind` URI (following the namespace convention of relationship types, §4.3) plus an optional human-readable `display`.
-- `purpose` — the structured purpose object (relocated here from Obligations as of v2.0; see §9.4). Its `kind`/`params`/`display` shape is defined in §6.6.
+- `purpose` — the structured purpose object; its `kind`/`params`/`display` shape and the base purpose-class vocabulary are defined in §9.4.
 - `beneficiary` (optional) — the entity for whom the delegated act is performed, where this differs from both delegator and delegatee. Expressed using the identity object of §4.4. `beneficiary` is **descriptive only**: like every Objective field it is inert (§9.2), and it MUST NOT be used to scope *whose* records or resources may be accessed. Where the identity of the data subject narrows what may be touched (release *this* dependent's records, not another's), that scoping is an enforceable Constraint or Obligation concern (§7.3), not a property of the inert Objective. This boundary is load-bearing; see §11.9.
 
 ### 9.2 The Inert Property (normative)
@@ -1154,16 +1121,31 @@ The Objective MAY be expressed in either of two forms (the choice is a deploymen
 
 **Binding-chain participation** is specified in §8.1 (step 8): the Objective is verified for integrity (hash match, signature, consistent upstream references) and never evaluated for authorization scope.
 
-### 9.4 Relocation of the Purpose Object
+### 9.4 The Purpose Object
 
-Prior to v2.0 the structured `purpose` object was a field of the `obligations` object (§6.6). As of v2.0 it is a sub-claim of the Objective. This is a *relocation*, not a redefinition: the `kind`/`params`/`display` structure and the base purpose-class vocabulary of §6.6 are unchanged in shape, and §6.6 remains their canonical shape definition.
+The `purpose` object characterizes the declared intent of a delegation. Like every Objective field it is **inert** (§9.2): a verifier MUST NOT use it to derive, widen, or gate authority. It is audit-and-consent material — what an auditor reads to understand *why* a delegation was authorized, and what a consent interface renders. This section is its canonical definition; it defines the object's shape and the base purpose-class vocabulary.
 
-What does change is the enforcement posture, as a consequence of the inert property (§9.2):
+When present, `purpose` is an optional structured object that MUST contain `kind` and MAY contain `params` and `display`:
 
-- The v1.3 distinction between *governance-shaping* and *audit-only* purpose params, and the rule that "ignoring governance-shaping params is equivalent to dropping a constraint," are **retired**. Under the inert property, no purpose param gates the delegation's authority. Purpose params are audit-and-consent material; a resource-side policy MAY consult them out of band (§9.2).
-- Deployments that issued Task JWTs with an `obligations.purpose` field under v1.1–v1.4 SHOULD treat that field as an inline Objective `purpose` with no change in wire shape.
+- `kind` — a URI identifying the purpose class. Purpose class URIs follow the same namespace convention as relationship types (§4.3) and MAY be registered under the `urn:ietf:params:delegation:purpose:` prefix for common classes, or under deployment-specific namespaces for domain-specific cases. A purpose class URI MAY be dereferenced to retrieve a **purpose catalog entry** describing the expected `params` schema and the meaning of each parameter for consent rendering and audit.
 
-This reverses the v1.3 direction on purpose-as-governance-shaping. The reversal is deliberate, and resolves the long-standing question of purpose-as-runtime-test in favor of a *structured-but-inert* purpose evaluated out of band if at all, on the prompt-injection-resistance grounds of §9.2. Where a delegation must become inert when its declared purpose no longer holds, the bounding mechanism is an enforceable one — a `terminal_when` on the Obligation (§6.7) or an `expires_on_event` Constraint (§7.7) — not the purpose object.
+- `params` (optional) — an object carrying purpose-instance parameters, described by the `kind`'s catalog entry. All params are audit-and-consent material; none gate this delegation's authority (§9.2). A resource-side policy MAY consult them out of band for its own decisions, but that is the resource's policy, not this delegation's authority.
+
+- `display` (optional) — a human-readable description for audit trails and consent interfaces. Deployments that issued Task JWTs with a `purpose` string under v1.1 or v1.2 SHOULD treat that string as `{ "display": "<string>" }` with no `kind` or `params`.
+
+**Base purpose class vocabulary.** The following purpose class URIs are pre-registered for common delegation scenarios. The registry is extensible; profiles and deployments MAY register additional classes under their own namespaces, with promotion to the base registry following the same process as relationship types (§4.3).
+
+| Class URI | Meaning | Example params (audit/consent) |
+|-----------|---------|-----------------------------------|
+| `urn:ietf:params:delegation:purpose:travel-booking` | Travel arrangement on behalf of delegator | `scope` (accommodation / transport / all), `event_type` |
+| `urn:ietf:params:delegation:purpose:financial-transaction` | Payment or financial operation | `transaction_class`, `counterparty_type` |
+| `urn:ietf:params:delegation:purpose:record-disclosure` | Release of records to a third party | `record_type`, `recipient_context`, `disclosure_event` |
+| `urn:ietf:params:delegation:purpose:medical-administration` | Clinical task in a patient care context | `care_domain`, `patient_context` |
+| `urn:ietf:params:delegation:purpose:scheduling` | Calendar or appointment management | `scope`, `subject_context` |
+
+**Not a commit-boundary gate.** Because purpose is inert (§9.2), it is not a commit-boundary signal. Commit-boundary validity (§8.3) is decided by the status signals of the enforceable components: Relationship/Authority liveness, Constraint satisfaction and trigger-based expiry (§7.7), and Obligation discharge via `terminal_when` (§6.6). Where a delegation must become inert when its declared purpose no longer holds, the bounding mechanism is an enforceable one — a `terminal_when` on the Obligation (§6.6) or an `expires_on_event` Constraint (§7.7) — not the purpose object. The Maya/Theo record disclosure of §9.6 is the worked example: the release is bounded by the Obligation's `terminal_when`, while the purpose records only *why* it was authorized.
+
+**Relocation and retired posture (v2.0).** Prior to v2.0 the structured `purpose` object was a field of the `obligations` object; as of v2.0 it is a sub-claim of the Objective, and this section is its home. This is a *relocation*, not a redefinition: the `kind`/`params`/`display` structure and the base vocabulary above are unchanged in shape. What changed is the enforcement posture, as a consequence of the inert property (§9.2): the v1.3 distinction between *governance-shaping* and *audit-only* purpose params — and the rule that "ignoring governance-shaping params is equivalent to dropping a constraint" — are **retired**; no purpose param gates the delegation's authority. Deployments that issued Task JWTs with an `obligations.purpose` field under v1.1–v1.4 SHOULD treat that field as an inline Objective `purpose` with no change in wire shape. This reverses the v1.3 direction on purpose-as-governance-shaping and resolves the long-standing purpose-as-runtime-test question in favor of a *structured-but-inert* purpose, on the prompt-injection-resistance grounds of §9.2.
 
 ### 9.5 Example: Sam's Household Renewals (standalone Objective)
 
@@ -1193,7 +1175,7 @@ Sam's assistant generates each specific renewal (DMV registration, property tax,
 
 ### 9.6 Example: Inline Objective (single declared task)
 
-For Maya's vaccination-record release (§6.7), no umbrella-act layer is needed; the Objective is inline and carries only the purpose:
+For Maya's vaccination-record release (§6.6), no umbrella-act layer is needed; the Objective is inline and carries only the purpose:
 
 ```json
 "objective": {
@@ -1209,7 +1191,7 @@ For Maya's vaccination-record release (§6.7), no umbrella-act layer is needed; 
 }
 ```
 
-This is byte-for-byte the object that appeared as `obligations.purpose` prior to v2.0; only its location (under `objective` rather than `obligations`) and its enforcement posture (inert, §9.2) have changed. The bounded-in-time behavior of the release is enforced by the Obligation's `terminal_when` (§6.7), not by this purpose.
+This is byte-for-byte the object that appeared as `obligations.purpose` prior to v2.0; only its location (under `objective` rather than `obligations`) and its enforcement posture (inert, §9.2) have changed. The bounded-in-time behavior of the release is enforced by the Obligation's `terminal_when` (§6.6), not by this purpose.
 
 ---
 
@@ -1322,7 +1304,7 @@ A delegation established under one jurisdiction's legal framework may need to be
 The Objective component (§9) is newly introduced in v2.0 and its concept and inert property are settled, but several details are deliberately left open pending community input and deployment experience:
 
 - **Final name.** "Objective" is provisional (§9 naming note). *Commission* and *Charter* are the leading alternatives; the choice will be made after the LinkedIn community discussion and any IETF/OIDF feedback.
-- **`action` class vocabulary.** §9.1 defines `action.kind` as a URI following the §4.3 namespace convention, but no base `action` class registry is yet defined (unlike the base purpose-class vocabulary of §6.6). Whether the umbrella act needs a registry, or whether free-form `display` plus a deployment-specific `kind` suffices, is open.
+- **`action` class vocabulary.** §9.1 defines `action.kind` as a URI following the §4.3 namespace convention, but no base `action` class registry is yet defined (unlike the base purpose-class vocabulary of §9.4). Whether the umbrella act needs a registry, or whether free-form `display` plus a deployment-specific `kind` suffices, is open.
 - **Beneficiary modeling (load-bearing — descriptive vs. scoping).** This is more than a detail; it is a correctness question about whether the inert layer stays inert. If `beneficiary` is purely *descriptive* (a record of for-whom, rendered for consent and retained for audit), it belongs in the Objective and stays inert. But if a deployment ever lets `beneficiary` *scope* whose records or resources may be touched (release *this* dependent's vaccination records and not another's), it becomes enforcement-relevant and **cannot** be inert — placing it in the Objective would re-import the exact authority-bearing-intent trap the inert property (§9.2) exists to close, the same trap `purpose` was just rescued from (§9.4). The framework's current position is that `beneficiary` is descriptive only (§9.1); any scoping role MUST be expressed as an enforceable Constraint or Obligation (§7.3). Whether the beneficiary additionally needs richer *descriptive* structure (role relative to the act, data-subject status, age-appropriate handling under the Privacy-Preserving Profile) is the secondary, non-blocking part of this question. Surfaced by K. McGuinness's review of v2.0.
 - **Inline vs. standalone guidance.** §9.3 permits both forms; concrete guidance on when a standalone `objective+jwt` is required (e.g., a normative threshold tied to delegatee-generated Obligations) versus when inline suffices is deferred until generated-Obligations deployment patterns are clearer.
 - **Execution-layer interaction.** How Permissioned Capabilities surfaces the inert Objective in consent and audit rendering, and how the `objective_hash` intent anchor composes with Action Receipts and any transparency-service substrate, is execution-layer work (companion document).
