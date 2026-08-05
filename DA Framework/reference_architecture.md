@@ -1,10 +1,14 @@
 # Delegated Authorization Reference Architecture
 
-**Working draft v2.5 — Relationship, Authority, Objective, Obligations, and Constraints**
+**Working draft v3.0 — Relationship, Authority, Objective, Obligations, and Constraints**
 
 *A framework for expressing delegated authorization across human, organizational, and AI workload contexts, building on IETF and OpenID Foundation specifications.*
 
 *This file replaces the prior `reference_architecture_v1.1.md`. Going forward, the version is carried in this document header and in the per-revision changelog below; the filename is stable across revisions.*
+
+**Changelog (v2.5 → v3.0):**
+- **`scope_override` removed; graduated authority re-based onto the Authority issuer (resolves review finding M1).** §4.8 previously let a stage in the *Relationship* (`eligibility.tier1.stage_schedule[].scope_override`) designate "the operative scope," overriding the Authority's `scope_domain`. This **inverted the component layering** (a Relationship-side field moving Authority scope) and, under multi-issuer signing (§8.2), let the Relationship issuer override the Authority issuer's scope — a cross-issuer escalation the role-scoped-anchor rule (§12.2) forbids. It was also left incoherent by v2.4, which made `scope_domain` advisory while §4.8 still treated `scope_override` as an enforcement lever. **§4.8 is rewritten** to separate the two things a graduated delegation moves and keep each on its owning instrument: **eligibility** (who/when) stays on the Relationship's `stage_schedule` (now carrying a descriptive `capacity_band`, never scope); **scope** (what) is carried only on the **Authority** — the normative baseline is a **sequence of Authority JWTs** (one per band, issued by the Authority issuer), with an **optional Authority-side `stage_schedule`** mapping each band to **admitted RAR types** (value-space, §5.5.1) as a compact encoding that avoids per-stage re-issuance. Because life-stage bands are not in general nested subsets, a graduated chain cannot be expressed as a narrowing Constraint; the fresh-Authority-per-band model is what admits non-nested successive scopes. §5.5.1, §12.2, §12.5, and §12.6 updated to reflect that the cross-issuer `scope_override` path is closed with no residual open instance.
+- **Version:** removal of a published component field behavior (`scope_override`) is a non-backwards-compatible change → **major** bump (v3.0). No new component was added or removed. Source: Karl McGuinness's RA v2.0 review, finding **M1** — the last open item of that review; planning analysis in `external-analysis/m1_scope_override_planning.md`.
 
 **Changelog (v2.4 → v2.5):**
 - **Structural reorganization — the Purpose Object definition moved from §6 (Obligations) to §9 (Objective); no normative or wire change.** The structured `purpose` object's canonical shape definition and base purpose-class vocabulary were added at v1.3 as **§6.6 "Purpose Classes"** while purpose was a field of Obligations. When v2.0 relocated `purpose` onto the Objective, that definition physically stayed in Section 6, with Section 9 pointing back to it — leaving the Objective's own purpose field defined in a different component's section. This revision moves the definition into a rewritten **§9.4 "The Purpose Object"** (consolidated with the former §9.4 relocation note), making Section 9 the single self-contained home for the Objective and everything it carries. The `kind`/`params`/`display` shape, the five base purpose classes, and the inert posture (§9.2) are **unchanged** — only the location changed.
@@ -396,43 +400,21 @@ This Relationship asserts that Dr. Jane Smith (delegator) may delegate to any in
 
 Some delegations are not single-event grants but **progressive transfers** in which authority shifts gradually between parties as circumstances change. The canonical example is a child's evolving capacity: a guardian holds full digital authority for a young child, shares decision-making with an older child, and ultimately retains only safeguarding authority for an adolescent before fully ceding control at the age of majority. The same pattern arises in capacity-graded medical decision-making, in escalating organizational responsibility, and in time-boxed corporate succession.
 
-The framework supports two implementation patterns for graduated authority. Deployments may choose either based on the operational characteristics of the issuing intermediary; the base specification does not normatively prefer one.
+A graduated delegation moves two distinct things across time, and the framework keeps each on its owning instrument. **Eligibility** — who may act, and when — is the Relationship's concern; **scope** — what may be done — is the Authority's. A stage boundary never lets the Relationship move scope, and never lets the Authority decide who is eligible. This separation is what the role-scoped trust-anchor rule (§8.2, §12.2) depends on: the party whose role is scope is the only party that may move scope.
 
-**Pattern A — Sequential Relationships.** A series of Relationship JWTs are issued, each scoped to a defined life stage or capacity band, with non-overlapping `nbf`/`exp` windows. The issuing intermediary manages the sequence, ensuring that exactly one Relationship is active at any given time. Transitions between stages are revocation-and-issuance events. This pattern is operationally simpler to verify (each verifier sees one Relationship at a time) but requires the intermediary to actively manage the schedule.
+**Graduated scope — the baseline (sequenced Authorities).** The normative baseline for scope that changes across life stages or capacity bands is a **sequence of Authority JWTs**, each scoped to one band and issued by the Authority issuer, with non-overlapping validity windows. A single, stable Relationship underwrites the parties across the whole sequence; each band transition is a revocation-and-issuance of the *Authority*, not a change to the Relationship. Every operative scope is thereby owned and signed by the party whose role is scope, and each band's enforceable bound is the active Authority's admitted RAR types (§5.5.1). This pattern is operationally simpler to verify — a verifier evaluates one Authority at a time — at the cost of the Authority issuer actively managing the sequence.
 
-**Pattern B — Single Relationship with Stage-Keyed Eligibility.** A single Relationship JWT carries a `stage_schedule` field within `eligibility.tier1`, defining the authority bands and their boundary conditions. Verifiers evaluate the schedule against the runtime context (e.g., the child's current age) to determine which band is active. This pattern is more compact but bakes a state machine into the credential.
-
-When using Pattern B, the schedule structure is:
+**Graduated eligibility — stage-keyed Relationship.** Where *eligibility itself* changes across stages — a delegatee who may act only within a capacity band, a subject who progressively acquires standing, or a decision that requires the subject's co-consent once they reach a threshold — a single Relationship JWT MAY carry a `stage_schedule` field within `eligibility.tier1` that selects the active band against runtime context (e.g., the subject's current age). The schedule governs **eligibility only**: it names which capacity band is active and MAY gate whether, and with whose co-consent, the delegatee is eligible to act. It MUST NOT carry or move Authority scope. The `capacity_band` label is descriptive of the eligibility tier (a deployment maps it to consent thresholds and co-signature requirements); it is not a scope grant.
 
 ```json
 "stage_schedule": {
   "schedule_type": "age_banded",
   "subject_age_attribute": "delegatee_age",
   "stages": [
-    {
-      "stage_id": "early",
-      "min_age": 0,
-      "max_age": 7,
-      "scope_override": "https://schemas.example.com/scope/full-guardianship"
-    },
-    {
-      "stage_id": "consultative",
-      "min_age": 8,
-      "max_age": 12,
-      "scope_override": "https://schemas.example.com/scope/consultative-guardianship"
-    },
-    {
-      "stage_id": "shared",
-      "min_age": 13,
-      "max_age": 15,
-      "scope_override": "https://schemas.example.com/scope/shared-decision"
-    },
-    {
-      "stage_id": "safeguarding-only",
-      "min_age": 16,
-      "max_age": 17,
-      "scope_override": "https://schemas.example.com/scope/safeguarding-only"
-    }
+    { "stage_id": "early",             "min_age": 0,  "max_age": 7,  "capacity_band": "full-guardianship" },
+    { "stage_id": "consultative",      "min_age": 8,  "max_age": 12, "capacity_band": "consultative-guardianship" },
+    { "stage_id": "shared",            "min_age": 13, "max_age": 15, "capacity_band": "shared-decision" },
+    { "stage_id": "safeguarding-only", "min_age": 16, "max_age": 17, "capacity_band": "safeguarding-only" }
   ],
   "terminal_event": {
     "event_type": "age_of_majority_reached",
@@ -441,9 +423,26 @@ When using Pattern B, the schedule structure is:
 }
 ```
 
-The `scope_override` field interacts with the bound Authority JWT: when the active stage carries a scope_override, that scope (rather than the Authority's `derivative_authority.permission.scope_domain`) is the operative scope at the moment of evaluation. This allows a single Authority instrument to underwrite a graduated chain of operative scopes without requiring re-issuance of the Authority itself.
-
 The `terminal_event` field defines the boundary condition that ends the Relationship. Terminal events are typically irrevocable (an adult cannot have their majority undone) and trigger automatic, non-cascading revocation per §8.4.
+
+**Optional compact encoding — Authority-side stage schedule.** A deployment that wants graduated scope without issuing and managing a sequence of Authorities MAY instead carry the stage schedule on the **Authority**, mapping each band to the set of admitted RAR types that scope it (§5.5.1). The schedule structure mirrors the eligibility form above, but each stage names `admitted_types` (registered RAR type identifiers, compared in value space) rather than a `capacity_band` label:
+
+```json
+"stage_schedule": {
+  "schedule_type": "age_banded",
+  "subject_age_attribute": "delegatee_age",
+  "stages": [
+    { "stage_id": "early",             "min_age": 0,  "max_age": 7,  "admitted_types": ["urn:example:guardianship:full"] },
+    { "stage_id": "consultative",      "min_age": 8,  "max_age": 12, "admitted_types": ["urn:example:guardianship:consultative"] },
+    { "stage_id": "shared",            "min_age": 13, "max_age": 15, "admitted_types": ["urn:example:guardianship:shared-decision"] },
+    { "stage_id": "safeguarding-only", "min_age": 16, "max_age": 17, "admitted_types": ["urn:example:guardianship:safeguarding"] }
+  ]
+}
+```
+
+Because this schedule is carried and signed by the Authority issuer, the layering and single-issuer-owns-its-own-claim properties (§12.2) hold exactly as they do for the sequenced form; the tradeoff is a scope state machine baked into the Authority credential rather than a managed sequence. The bands need not be nested — a later band may admit a type an earlier one did not (safeguarding powers a full guardian never separately held), which is why a graduated chain cannot in general be expressed as a Constraint that only narrows the source scope.
+
+> **A note on the removed `scope_override` (v3.0).** Prior revisions let a stage in the *Relationship* designate the operative scope via a `scope_override` field, overriding the Authority's `scope_domain`. That mechanism is **removed**. It inverted the layering — a Relationship-side field moving Authority scope — and, under multi-issuer signing, let the Relationship issuer override the Authority issuer's scope, a cross-issuer escalation the role-scoped-anchor rule (§12.2) forbids. Graduated scope is now expressed by sequenced Authorities or the optional Authority-side schedule above; the Relationship's `stage_schedule`, where used, governs eligibility only.
 
 ### 4.9 Role-Tuple Group Sub-Type
 
@@ -547,7 +546,7 @@ The set of admitted types is enumerated by the authority, not inferred from `sco
 
 This keeps Authority's run-time role real without resting it on undefined string matching: the authority still bounds *what may be delegated onward* (an explicit, value-space-checkable enumeration) and *what basis the delegator holds* (source authority, §5.4), while the free-form `scope_domain` is demoted to the advisory label it can be relied on to be. The value-space discipline follows the approach the Mission-Bound Authorization suite takes for its Common Constraint subset and intersection rules — every registered entry defines its own value-space comparison so independent deployments compute the same result (§13) — applied here by pushing the enforceable test onto the registered RAR type vocabulary rather than onto free-form URIs.
 
-The graduated-authority Pattern B `scope_override` mechanism (§4.8) interacts with this reframing and is **not** reconciled here: §4.8 currently designates a stage's `scope_override` as "the operative scope," which reads as an enforcement lever, whereas this section makes `scope_domain` advisory. Squaring the two — whether `scope_override` should move an advisory label, gate value-space type admission, or be replaced by sequenced Authorities — is part of the separate structural decision tracked as a known open item in §12.2, and is deliberately left open.
+Graduated authority (§4.8) is expressed consistently with this rule: as of v3.0 the Relationship-side `scope_override` is removed, and a graduated chain of scopes is carried either as a sequence of Authorities or as an Authority-side stage schedule whose bands name **admitted RAR types** — the same value-space test defined here. Scope is never moved by an advisory label or by a Relationship-side field.
 
 ### 5.6 Profiles
 
@@ -1337,7 +1336,7 @@ For each role: what it must achieve, what it assumes of the others, and how its 
 
 The attack this prevents is **cross-issuer scope escalation**: if a verifier would honor an Authority-scoping claim signed by whichever issuer signed the Relationship, then the Relationship issuer — who is only supposed to establish *who* may act and *when* — could enlarge *what* may be done, which is the Authority issuer's role. Role-scoped anchors close the general case: a claim that moves Authority scope is honored only if signed by an issuer the verifier trusts *for Authority*.
 
-One concrete path in the current specification still violates this rule and is **not** closed by v2.3: the Relationship-side `scope_override` in the graduated-authority Pattern B (§4.8) lets a stage schedule carried in the Relationship override the Authority's `scope_domain`, which under multi-issuer signing lets the Relationship issuer override the Authority issuer's scope. This is a known open item, tracked as a structural decision (it changes a published component behavior and so is deferred pending an explicit design choice); §12.2's rule is the standard against which it will be fixed. Until it is, a deployment using Pattern B `scope_override` under multi-issuer signing MUST treat the Relationship and Authority issuers as a single trust domain, or MUST NOT use `scope_override` to widen Authority scope.
+The one path that previously violated this rule — the Relationship-side `scope_override` in the graduated-authority pattern (§4.8), which let a stage schedule carried in the Relationship override the Authority's scope — was **removed in v3.0**. Graduated scope is now carried only on the Authority (a sequence of Authorities or an Authority-side stage schedule, §4.8), so a stage boundary can no longer move scope across issuers; this rule is closed with no residual open instance.
 
 The mechanism by which per-role anchors are discovered and configured — federation metadata, an issuer-role registry, static configuration — is deferred to profiles (§11.2).
 
@@ -1370,7 +1369,6 @@ Given an intact trusted base, the model guarantees that an act is bounded by the
 It does not guarantee the following, and a deployment owns each residual:
 
 - **Bearer capture-and-replay before presentation binding.** Until the execution layer binds presentation (holder key + audience, §8.7), a captured component is replayable at any relying party that trusts its issuer. The delegation layer does not close this; a deployment either derives a holder-bound execution-layer credential or keeps capture out of its threat model by construction (§8.7).
-- **Cross-issuer scope escalation via `scope_override`.** The role-scoped-anchor rule (§12.2) closes the general case, but the specific Pattern B `scope_override` path (§4.8) remains open pending a structural fix; until then it carries the constraint stated in §12.2.
 - **Semantic correctness of the act.** The framework bounds *what* is authorized, not whether the delegatee does the right thing within those bounds. Grounding and intent verification are out of scope; pair with a grounding layer where needed.
 - **Compromise of a trusted-base component.** A compromised issuer forges within its role; a compromised intermediary exposes reasons and correlation; a compromised verifier can ignore a deny; a trusted-but-lying status source reports false facts. These are not prevented; receipts make some detectable after the fact.
 - **Availability.** Because authority-bearing sources fail closed (§12.3), degrading them yields denial of service, not privilege escalation — a trade the model makes on purpose for the regulated and safeguarding domains it targets.
@@ -1387,14 +1385,14 @@ The adversary is assumed to control a delegatee (agentic profile), to reach the 
 | Stale authority used after revocation or transfer | Commit-boundary re-check + revocation cascade (§8.3, §8.4) | A window up to the enforcement window / status-cache TTL (§8.4) |
 | Terminating event fired, credential still used | Trigger check at commit time, fail-closed on an unreachable event source (§7.7, §12.3) | A bounded `grace_period` window where configured (§7.7) |
 | MITM, suppression, or spoof of a commit-time source | Source authentication + integrity + fail-closed availability (§12.3) | A source that is *trusted and lying* (compromised, not merely MITM'd) — a trusted-base residual |
-| Relationship issuer enlarges Authority scope (cross-issuer escalation) | Role-scoped trust anchors (§8.2, §12.2) | The Pattern B `scope_override` path (§4.8) is a currently-open instance, not yet fixed |
+| Relationship issuer enlarges Authority scope (cross-issuer escalation) | Role-scoped trust anchors (§8.2, §12.2); graduated scope carried only on the Authority (§4.8, `scope_override` removed in v3.0) | Within-role forgery by a compromised Authority issuer (a trusted-base residual, §12.1) |
 | Disclosure of the *reason* for a status change | Reason-hiding is the default for all profiles (§8.4) | The intermediary that holds the reason is trusted (§12.1) |
 | Disclosure of the subject's relationship existence or graph | Privacy-Preserving Profile layering and cardinality hiding (R1) | Correlation by a colluding set of relying parties (Privacy-Preserving Profile threat model) |
 | Compromise of one issuer's signing key | Role-scoped anchors bound the forgery to that issuer's role (§12.2) | Within-role forgery until the key is rotated or revoked |
 | Delegatee fabricates results or acts on false data | Not addressed | Full — semantic/grounding verification is out of scope |
 | A trusted-base component is compromised | Not prevented; receipts detect some cases after the fact | Degrades the specific guarantee named in §12.1 |
 
-Three residuals are worth naming on their own, because they are the limits most easily overstated away: **bearer replay** until the execution layer binds presentation (§8.7); the **`scope_override`** cross-issuer path (§4.8), open pending a structural decision; and **availability**, which the fail-closed rule converts attacks into, by design.
+Two residuals are worth naming on their own, because they are the limits most easily overstated away: **bearer replay** until the execution layer binds presentation (§8.7); and **availability**, which the fail-closed rule converts attacks into, by design.
 
 ---
 
