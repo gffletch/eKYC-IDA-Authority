@@ -1,32 +1,45 @@
 # Privacy-Preserving Profile for Delegated Authorization
 
-**Working draft v1.0 — Companion Profile to the Delegated Authorization Reference Architecture v1.1**
+**Working draft v1.1 — Companion Profile to the Delegated Authorization Reference Architecture v4.0**
 
 *A layered profile that makes minimum-disclosure of delegation structure binding, for deployments involving vulnerable populations or sensitive relationship types.*
+
+*This file replaces the prior `privacy_preserving_profile_v1.0.md`. Per `CLAUDE.md` §4.7 the version is carried in this header and the changelog below; the filename is stable across revisions.*
+
+**Changelog (v1.0 → v1.1):**
+- **Re-based from Reference Architecture v1.1 to v4.0.** v1.0 was written against the four-component base and had fallen three major revisions behind. This revision aligns it; the profile's own architecture (the intermediary, R1–R6, the two-token split) is unchanged.
+- **New §6.8 — Objective and Beneficiary Non-Disclosure (normative).** The **Objective** (base spec §9), added at RA v2.0, had no treatment in this profile at all. It carries `action`, the structured `purpose` object, and an **optional `beneficiary`** — and in this profile's deployments the beneficiary *is* the protected person. §6.8 makes the Objective intermediary-held and forbids the beneficiary from reaching a relying party in any form.
+- **New §2.5 — Conformance level floor (L2).** RA v4.0 §3.2 introduced conformance levels; this profile's verification intermediary is a distinct issuing role by construction, so its authorship is distributed by definition and its floor is **L2**. The compact (L0) packaging is structurally unavailable here, and stating so prevents a deployment from claiming this profile over a self-issued single JWT.
+- **New §6.9 — Admitted-Type Enumeration.** RA v2.4/v3.0 moved the enforceable "within authority" test off `scope_domain` (now advisory) and onto an enumeration of admitted RAR types (§5.5.1). That relocated the disclosure surface this profile's §6.1 was built to cover: abstracting `scope_domain` is now cheap and no longer sufficient on its own, because the type enumeration is what carries the enforceable meaning.
+- **§6.6 aligned to the new §8.3.1 status-mechanism menu**, and this profile's mechanism stated: **"none — bounded by lifetime" is not available** to a conformant deployment.
+- **§6.7 terminology corrected for RA v3.0.** It referred to the intermediary emitting "the currently-active scope" from a stage schedule; `scope_override` was removed at v3.0 and Relationship-side stages now carry a descriptive `capacity_band`, never scope. Reworded.
+- **§5.1 and §5.2 re-anchored:** the rich credential set now names the Objective, and the presentation token's `purpose` is anchored to the Objective's purpose object (§9.4), which relocated from Obligations at RA v2.5.
+- **§1.1 and §11.1** corrected from "four-component" and "v1.1" to the current five-component v4.0 base.
+- **Version:** additive — new normative constraints and a stated floor; no existing requirement removed or weakened → **minor** bump (v1.1).
 
 ---
 
 ## Table of Contents
 
-1. [Introduction](#1-introduction)  
-2. [Scope and Applicability](#2-scope-and-applicability)  
-3. [The Verification Intermediary Role](#3-the-verification-intermediary-role)  
-4. [The Six Privacy Requirements (R1–R6)](#4-the-six-privacy-requirements-r1r6)  
-5. [The Two-Token Architecture](#5-the-two-token-architecture)  
-6. [Profile-Specific Field Constraints](#6-profile-specific-field-constraints)  
-7. [Cryptographic Unlinkability (Optional Extension)](#7-cryptographic-unlinkability-optional-extension)  
-8. [Compliance and Audit](#8-compliance-and-audit)  
-9. [Worked Example: Care Home Manager → Platform](#9-worked-example-care-home-manager--platform)  
-10. [Open Questions](#10-open-questions)  
+1. [Introduction](#1-introduction)
+2. [Scope and Applicability](#2-scope-and-applicability)
+3. [The Verification Intermediary Role](#3-the-verification-intermediary-role)
+4. [The Six Privacy Requirements (R1–R6)](#4-the-six-privacy-requirements-r1r6)
+5. [The Two-Token Architecture](#5-the-two-token-architecture)
+6. [Profile-Specific Field Constraints](#6-profile-specific-field-constraints)
+7. [Cryptographic Unlinkability (Optional Extension)](#7-cryptographic-unlinkability-optional-extension)
+8. [Compliance and Audit](#8-compliance-and-audit)
+9. [Worked Example: Care Home Manager → Platform](#9-worked-example-care-home-manager--platform)
+10. [Open Questions](#10-open-questions)
 11. [References](#11-references)
 
 ---
 
-## 1\. Introduction
+## 1. Introduction
 
 ### 1.1 Why This Profile Exists
 
-The base Reference Architecture defines a clean four-component model for delegated authorization. For most deployments — agentic AI delegation, corporate signing authority, healthcare credentialing among professional peers — the base specification is sufficient.
+The base Reference Architecture defines a clean five-component model for delegated authorization (Relationship, Authority, the inert Objective, Obligations, and Constraints). For most deployments — agentic AI delegation, corporate signing authority, healthcare credentialing among professional peers — the base specification is sufficient.
 
 For deployments where the delegatee population includes **vulnerable individuals** or where the **type of delegation is itself sensitive**, the base specification is necessary but not sufficient. A platform receiving a base-specification credential could observe enough of its structure to infer information that the delegation system was meant to protect: the cardinality of a guardian's responsibilities, the legal basis for their authority, their professional role, or the membership pattern of authorized groups.
 
@@ -36,8 +49,8 @@ This profile addresses that gap. It does so by **layering** privacy requirements
 
 This profile changes nothing in the base specification's wire format, claim definitions, or binding model. Authority JWTs, Relationship JWTs, and Task JWTs as defined in the Reference Architecture are issued, bound, and validated identically. What this profile changes is:
 
-1. **Who issues the credentials that platforms see.** Under this profile, platforms do not see the raw credentials defined in the base specification. They see *presentation credentials* derived from those raw credentials by a regulated verification intermediary.  
-2. **What fields appear in the platform-facing presentation.** The presentation is constrained to a narrow, abstract set of attributes that does not allow the relying party to reconstruct the underlying delegation structure.  
+1. **Who issues the credentials that platforms see.** Under this profile, platforms do not see the raw credentials defined in the base specification. They see *presentation credentials* derived from those raw credentials by a regulated verification intermediary.
+2. **What fields appear in the platform-facing presentation.** The presentation is constrained to a narrow, abstract set of attributes that does not allow the relying party to reconstruct the underlying delegation structure.
 3. **How revocation, transfer, and audit are routed.** The intermediary handles all platform-facing lifecycle events, so platforms never observe the underlying state changes that would otherwise leak context.
 
 The base-specification credentials continue to exist and to do their job — they live inside the intermediary, where they support audit, dispute resolution, and oversight. They simply do not cross the relying-party boundary.
@@ -48,58 +61,69 @@ The six privacy requirements R1–R6 in §4 of this profile are drawn directly f
 
 ---
 
-## 2\. Scope and Applicability
+## 2. Scope and Applicability
 
 ### 2.1 When This Profile Is REQUIRED
 
 A deployment MUST conform to this profile if any of the following conditions applies:
 
-- The delegatee population includes or may include children (under the age of majority in the relevant jurisdiction)  
-- The delegatee population includes or may include adults under formal guardianship, conservatorship, or capacity-related legal arrangements  
-- The delegatee population includes or may include asylum seekers, refugees, or persons whose civil status is contested or fragile  
-- The delegation type itself reveals sensitive information about the delegator or delegatee (e.g., medical condition, immigration status, criminal proceeding involvement)  
+- The delegatee population includes or may include children (under the age of majority in the relevant jurisdiction)
+- The delegatee population includes or may include adults under formal guardianship, conservatorship, or capacity-related legal arrangements
+- The delegatee population includes or may include asylum seekers, refugees, or persons whose civil status is contested or fragile
+- The delegation type itself reveals sensitive information about the delegator or delegatee (e.g., medical condition, immigration status, criminal proceeding involvement)
 - The deployment is operating in a jurisdiction whose data protection regulator has determined that the underlying delegation context constitutes special-category data under GDPR Article 9 or equivalent
 
 ### 2.2 When This Profile Is RECOMMENDED
 
 A deployment SHOULD conform to this profile if:
 
-- The delegation occurs in a context where the delegator or delegatee has a reasonable expectation of contextual privacy beyond the immediate transaction (e.g., financial signing authority for a private trust)  
-- The deployment supports one-to-many delegations where cardinality could itself be sensitive  
+- The delegation occurs in a context where the delegator or delegatee has a reasonable expectation of contextual privacy beyond the immediate transaction (e.g., financial signing authority for a private trust)
+- The deployment supports one-to-many delegations where cardinality could itself be sensitive
 - The deployment crosses jurisdictional boundaries with non-uniform privacy regimes
 
 ### 2.3 When This Profile Is NOT REQUIRED
 
 The base Reference Architecture is sufficient (and this profile is not required) when:
 
-- The delegation is between professional peers in a single trust domain (e.g., physician-to-nurse within a hospital)  
-- The delegation is self-delegation by a competent adult to an agentic workload over their own affairs  
+- The delegation is between professional peers in a single trust domain (e.g., physician-to-nurse within a hospital)
+- The delegation is self-delegation by a competent adult to an agentic workload over their own affairs
 - The delegation type and the parties' roles are public information by nature (e.g., publicly-disclosed corporate signing authority)
 
 ### 2.4 Conformance
 
 A deployment claims conformance to this profile by:
 
-1. Operating a regulated verification intermediary as defined in §3  
-2. Implementing all six privacy requirements R1–R6 as MUSTs (§4)  
-3. Issuing platform-facing credentials only through the two-token architecture defined in §5  
-4. Honoring the field constraints in §6  
+1. Operating a regulated verification intermediary as defined in §3
+2. Implementing all six privacy requirements R1–R6 as MUSTs (§4)
+3. Issuing platform-facing credentials only through the two-token architecture defined in §5
+4. Honoring the field constraints in §6
 5. Producing audit records in the form specified in §8
 
 Cryptographic unlinkability (§7) is an OPTIONAL extension; conformance to this profile does not require it, but deployments operating under heightened threat models SHOULD implement it.
 
+### 2.5 Conformance Level Floor
+
+Base spec §3.2 defines two independent axes: the **conformance level** (how a delegation is packaged) and the **deployment profile** (how much assurance its contents carry). This document is a profile on the second axis, and it sets a floor on the first.
+
+**A conformant deployment operates at conformance level L2 (Distributed authorship).** The floor is structural rather than a policy preference: the verification intermediary (§3) is a distinct issuing role by construction — it holds the rich credentials, mints presentation tokens under its own key, and is regulated separately from the delegator and the relying party. A delegation whose Relationship, Authority, and presentation all issue from one party has no intermediary in it, and therefore has none of this profile's properties, whatever fields it carries.
+
+Two consequences follow:
+
+- **The compact (L0) packaging is not available under this profile.** A single self-issued `delegation+jwt` cannot express the intermediary's separate authorship, so a deployment MUST NOT claim conformance to this profile over one. Base spec §12.3.1 states the general form of the risk: accepting a level below the required floor is privilege escalation by repackaging, and a relying party operating under this profile MUST establish the required level from its own configuration rather than from the presented credential.
+- **Role-scoped trust anchors (base spec §8.2, §12.2) are load-bearing here.** The relying party trusts the intermediary for presentation tokens; that trust does not extend to the underlying Relationship or Authority, which the relying party never sees and MUST NOT be asked to evaluate.
+
 ---
 
-## 3\. The Verification Intermediary Role
+## 3. The Verification Intermediary Role
 
 ### 3.1 Definition
 
 A **Verification Intermediary** is a regulated party that sits between the delegator/delegatee and the relying party (platform). The intermediary:
 
-- Holds the rich base-specification credentials (Relationship, Authority, Task JWTs in their full form)  
-- Issues *presentation credentials* to relying parties on demand  
-- Maintains the authoritative audit trail of authorization events  
-- Manages revocation, transfer, and lifecycle events without leaking reasons to relying parties  
+- Holds the rich base-specification credentials (Relationship, Authority, Task JWTs in their full form)
+- Issues *presentation credentials* to relying parties on demand
+- Maintains the authoritative audit trail of authorization events
+- Manages revocation, transfer, and lifecycle events without leaking reasons to relying parties
 - Operates under statutory confidentiality obligations equivalent to or stronger than those governing the underlying delegation context
 
 The intermediary is the only architectural party that has access to the full delegation structure. Delegators and delegatees provide their authority instruments to the intermediary; relying parties receive only the flattened presentation. No other architectural party has visibility into both sides.
@@ -108,9 +132,9 @@ The intermediary is the only architectural party that has access to the full del
 
 This profile does not specify the legal form of the intermediary's regulation; that is determined by the deployment's jurisdiction and use case. Examples of suitable regulatory frameworks include:
 
-- **In the EU**: an entity authorized as a Qualified Trust Service Provider under eIDAS 2.0, with additional sectoral authorization for the delegation domain (e.g., authorization under national social-care law for child guardianship delegations)  
-- **In the UK**: an organization registered with the Information Commissioner's Office and additionally regulated by the relevant sectoral body (e.g., Ofsted for child welfare, the FCA for financial signing authority)  
-- **In the US**: a state-licensed entity operating under HIPAA-equivalent confidentiality obligations for healthcare contexts, or under state child welfare law for guardianship contexts  
+- **In the EU**: an entity authorized as a Qualified Trust Service Provider under eIDAS 2.0, with additional sectoral authorization for the delegation domain (e.g., authorization under national social-care law for child guardianship delegations)
+- **In the UK**: an organization registered with the Information Commissioner's Office and additionally regulated by the relevant sectoral body (e.g., Ofsted for child welfare, the FCA for financial signing authority)
+- **In the US**: a state-licensed entity operating under HIPAA-equivalent confidentiality obligations for healthcare contexts, or under state child welfare law for guardianship contexts
 - **Cross-border**: an entity participating in a multilateral trust framework that imposes equivalent confidentiality obligations across the participating jurisdictions
 
 The intermediary's regulatory status MUST be discoverable by relying parties, delegators, and delegatees through a published trust framework. The intermediary's authorizations MUST be bound to specific delegation domains; an intermediary licensed for child guardianship is not automatically authorized to handle financial signing authority.
@@ -119,36 +143,36 @@ The intermediary's regulatory status MUST be discoverable by relying parties, de
 
 A conforming intermediary MUST implement all of the following functions:
 
-- **Credential intake** — accepts Relationship, Authority, and Task JWTs from authorized issuers; validates their conformance to the base specification; stores them with integrity protection  
-- **Presentation issuance** — derives presentation credentials per relying party request; ensures presentations conform to the field constraints in §6  
-- **Lifecycle management** — propagates revocation, transfer, and expiry events to active presentations; ensures the 24-hour enforcement window from §8.3 of the base specification is met  
-- **Audit trail maintenance** — records every presentation issuance event with cryptographic integrity, retains audit records for the period mandated by the deployment's regulatory framework  
-- **Authorized access** — provides the delegator, the delegatee (where appropriate to capacity), oversight bodies, and the data subject (where appropriate) with access to the audit trail in age-and-capacity-appropriate form  
+- **Credential intake** — accepts Relationship, Authority, and Task JWTs from authorized issuers; validates their conformance to the base specification; stores them with integrity protection
+- **Presentation issuance** — derives presentation credentials per relying party request; ensures presentations conform to the field constraints in §6
+- **Lifecycle management** — propagates revocation, transfer, and expiry events to active presentations; ensures the 24-hour enforcement window from §8.4 of the base specification is met
+- **Audit trail maintenance** — records every presentation issuance event with cryptographic integrity, retains audit records for the period mandated by the deployment's regulatory framework
+- **Authorized access** — provides the delegator, the delegatee (where appropriate to capacity), oversight bodies, and the data subject (where appropriate) with access to the audit trail in age-and-capacity-appropriate form
 - **Regulator interface** — supports inspection by the deployment's regulatory authorities under defined access protocols
 
 ### 3.4 Prohibited Functions
 
 A conforming intermediary MUST NOT:
 
-- Disclose to relying parties any information about the underlying credentials beyond what the field constraints in §6 permit  
-- Use audit trail data for any commercial purpose, including profiling, marketing, advertising, or sale to third parties  
-- Correlate activity across relying parties for any purpose other than fulfilling its regulatory functions  
-- Hold relying-party-correlatable data in a form that could be subpoenaed without statutory protection (this MAY require segregating relying-party-specific data into per-relying-party encrypted partitions)  
+- Disclose to relying parties any information about the underlying credentials beyond what the field constraints in §6 permit
+- Use audit trail data for any commercial purpose, including profiling, marketing, advertising, or sale to third parties
+- Correlate activity across relying parties for any purpose other than fulfilling its regulatory functions
+- Hold relying-party-correlatable data in a form that could be subpoenaed without statutory protection (this MAY require segregating relying-party-specific data into per-relying-party encrypted partitions)
 - Charge the data subject (the individual the delegation concerns, e.g., the child) for access to their own audit trail or for exercise of any right granted under applicable privacy law
 
 ### 3.5 Trust Establishment with Relying Parties
 
 A relying party trusts an intermediary's presentation credentials by:
 
-1. Validating that the intermediary is registered in a recognized trust framework for the relevant delegation domain  
-2. Validating the intermediary's signing key chains to a trust framework root  
+1. Validating that the intermediary is registered in a recognized trust framework for the relevant delegation domain
+2. Validating the intermediary's signing key chains to a trust framework root
 3. Caching trust framework state with bounded staleness to detect intermediary deauthorization
 
 The base-specification's `iss` claim on the underlying credentials is *not* visible to the relying party; the relying party sees only the intermediary's `iss`. This is a deliberate consequence of R3 (role anonymization) — the underlying issuer's identity is itself a context-leak.
 
 ---
 
-## 4\. The Six Privacy Requirements (R1–R6)
+## 4. The Six Privacy Requirements (R1–R6)
 
 These requirements are MUSTs for any deployment conforming to this profile. They apply to the credentials and metadata visible to relying parties; they do not apply to the rich credentials held inside the intermediary.
 
@@ -166,8 +190,8 @@ For deployments operating under adversarial threat models (§7), cryptographic u
 
 The presentation credential MUST NOT reveal the legal basis under which the delegation was established. Specifically, the presentation MUST NOT contain or allow inference of:
 
-- The category of underlying authority (foster care order, kinship arrangement, residential placement, court-appointed guardianship, special guardianship, voluntary care agreement, etc.)  
-- The specific instrument identifier (court order number, care plan reference, employment contract reference)  
+- The category of underlying authority (foster care order, kinship arrangement, residential placement, court-appointed guardianship, special guardianship, voluntary care agreement, etc.)
+- The specific instrument identifier (court order number, care plan reference, employment contract reference)
 - The granting body (which court, which local authority, which corporate entity)
 
 Where the underlying delegation requires distinguishing among legal bases for evaluation (e.g., a particular permission only applies under court-order-based authority), that distinction is made *inside the intermediary* during presentation derivation. The relying party receives only the resulting authorization decision, not the legal basis that led to it.
@@ -184,7 +208,7 @@ The intermediary MAY issue different presentation credentials for different rely
 
 Where a deployment uses risk tiers (e.g., the high/highest assurance tiers in the base specification's profiles), the tier assignment MUST NOT correlate with the delegation type in a way that allows inference. Specifically:
 
-- The highest assurance tier MUST be applicable to *any* delegation type that warrants it on independent risk grounds (account type, monetary value, age band, sensitivity of action) — not exclusively to delegations involving vulnerable populations.  
+- The highest assurance tier MUST be applicable to *any* delegation type that warrants it on independent risk grounds (account type, monetary value, age band, sensitivity of action) — not exclusively to delegations involving vulnerable populations.
 - Tier labels MUST NOT use names or identifiers that themselves reveal context (e.g., a tier named "alternative-care-tier" violates R4; a tier named "high-assurance" does not).
 
 This requirement follows from a structural observation: if the highest assurance tier is *only ever* applied to delegations involving children in care, then the mere fact of a presentation carrying that tier label is itself a leak. Tiers must be defined by intrinsic risk properties of the delegation, not by the delegatee population.
@@ -195,8 +219,8 @@ The authoritative audit trail of authorization events MUST be held by the interm
 
 Specifically:
 
-- The intermediary holds a complete record of every presentation issuance, including the underlying credentials referenced, the relying party served, the timestamp, and the audit identifier  
-- The relying party holds at most a record of the presentation it received and the authorization decision it made, sufficient for its own compliance purposes  
+- The intermediary holds a complete record of every presentation issuance, including the underlying credentials referenced, the relying party served, the timestamp, and the audit identifier
+- The relying party holds at most a record of the presentation it received and the authorization decision it made, sufficient for its own compliance purposes
 - The intermediary's audit record is the artifact a regulator inspects when reviewing the delegation's history; the relying party's records are inspected only for the relying party's own conduct
 
 This separation ensures that the intermediary's regulated confidentiality obligations apply to the most sensitive aspect of the delegation (its history) and that subpoenaing a relying party does not reveal the underlying delegation structure.
@@ -213,16 +237,16 @@ For deployments where colluding relying parties are not a credible threat (e.g.,
 
 ---
 
-## 5\. The Two-Token Architecture
+## 5. The Two-Token Architecture
 
 ### 5.1 The Rich Token (Internal)
 
-The rich token is the base-specification credential set: Relationship JWT, Authority JWT, Task JWT, with full claims, full binding, and full identifiability. It is held by the intermediary and is not visible to relying parties.
+The rich token is the base-specification credential set: Relationship JWT, Authority JWT, Task JWT, and the Objective (base spec §9) whether carried as a standalone `objective+jwt` or inline in the Task, with full claims, full binding, and full identifiability. It is held by the intermediary and is not visible to relying parties.
 
 The rich token continues to be the canonical artifact for:
 
-- Audit trail evidence (an oversight body inspecting the delegation sees the rich token)  
-- Dispute resolution (a delegatee challenging an authorization decision can reference the rich token)  
+- Audit trail evidence (an oversight body inspecting the delegation sees the rich token)
+- Dispute resolution (a delegatee challenging an authorization decision can reference the rich token)
 - Inter-intermediary handoff (when a delegation is transferred between intermediaries, the rich token travels)
 
 ### 5.2 The Presentation Token (Relying-Party-Facing)
@@ -231,55 +255,47 @@ The presentation token is a derived credential issued by the intermediary, scope
 
 The presentation token's structure is:
 
+```
 {
-
-  "iss": "\<intermediary identifier\>",
-
-  "aud": "\<relying party identifier\>",
-
-  "iat": \<timestamp\>,
-
-  "exp": \<timestamp\>,
-
-  "jti": "\<unique presentation identifier\>",
-
-  "sub": "\<pseudonymous subject identifier scoped to relying party\>",
-
-  "delegatee\_pseudonym": "\<pseudonymous delegatee identifier scoped to relying party\>",
-
+  "iss": "<intermediary identifier>",
+  "aud": "<relying party identifier>",
+  "iat": <timestamp>,
+  "exp": <timestamp>,
+  "jti": "<unique presentation identifier>",
+  "sub": "<pseudonymous subject identifier scoped to relying party>",
+  "delegatee_pseudonym": "<pseudonymous delegatee identifier scoped to relying party>",
   "authorization": {
-
-    "scope\_class": "\<abstract scope identifier from registered vocabulary\>",
-
-    "tier": "\<assurance tier from base spec\>",
-
-    "valid\_until": \<timestamp\>,
-
-    "purpose": "\<abstract purpose identifier\>"
-
+    "scope_class": "<abstract scope identifier from registered vocabulary>",
+    "tier": "<assurance tier from base spec>",
+    "valid_until": <timestamp>,
+    "purpose": "<abstract purpose identifier>"
   },
-
-  "audit\_id": "\<opaque audit correlation identifier\>"
-
+  "audit_id": "<opaque audit correlation identifier>"
 }
+```
 
 The presentation token is signed by the intermediary. Its `sub` and `delegatee_pseudonym` are pseudonymous identifiers that are unique to (this delegation, this relying party); the same delegation presented to a different relying party uses different pseudonyms.
+
+The `authorization.purpose` member is an **abstract purpose identifier**, drawn from the base purpose-class vocabulary of base spec §9.4. It is a class label only: the Objective's structured `purpose` object — its `params` and `display` in particular — and the Objective's `action` and `beneficiary` are rich-credential material and never appear here (§6.8). Note that the purpose object relocated from Obligations to the Objective at base spec v2.5; a deployment implementing an earlier revision of this profile should re-check where it reads the value from.
 
 ### 5.3 What the Relying Party Cannot Determine
 
 From the presentation token alone, the relying party cannot determine:
 
-- The identity of the underlying delegator  
-- The legal basis of the delegation (R2)  
-- The professional or institutional role of the delegatee (R3)  
-- How many other delegations the delegatee participates in (R1)  
+- The identity of the underlying delegator
+- The legal basis of the delegation (R2)
+- The professional or institutional role of the delegatee (R3)
+- How many other delegations the delegatee participates in (R1)
 - Whether this is a healthcare, child-welfare, or other sensitive delegation type
+- Who the delegation's **beneficiary** is, or whether a beneficiary was named at all — the Objective never crosses the boundary (§6.8)
+- The declared purpose beyond its abstract class: no `purpose.params`, no `purpose.display` free text (§6.8)
+- Which RAR types the underlying Authority admits (§6.9)
 
 The relying party can determine:
 
-- That the delegation has been validated by a recognized intermediary  
-- The abstract scope class of the authorization (e.g., "platform account management")  
-- The assurance tier of the delegation  
+- That the delegation has been validated by a recognized intermediary
+- The abstract scope class of the authorization (e.g., "platform account management")
+- The assurance tier of the delegation
 - The duration of the authorization
 
 This is sufficient for the relying party to enforce its own access control rules without inferring the delegation context.
@@ -288,18 +304,18 @@ This is sufficient for the relying party to enforce its own access control rules
 
 A presentation token is issued through the following flow:
 
-1. The delegatee initiates an action at the relying party (e.g., setting up a parental control on a platform).  
-2. The relying party requests an authorization from the intermediary, naming the abstract action class and the audience identifier.  
-3. The intermediary validates the underlying rich credentials, evaluates the action against the rich credentials' obligations and constraints, and either issues a presentation token or denies the request.  
-4. The intermediary returns the presentation token to the relying party, either directly or via the delegatee acting as a pass-through.  
-5. The relying party validates the presentation token's signature against the intermediary's published keys, validates the audience binding, and proceeds with the action.  
+1. The delegatee initiates an action at the relying party (e.g., setting up a parental control on a platform).
+2. The relying party requests an authorization from the intermediary, naming the abstract action class and the audience identifier.
+3. The intermediary validates the underlying rich credentials, evaluates the action against the rich credentials' obligations and constraints, and either issues a presentation token or denies the request.
+4. The intermediary returns the presentation token to the relying party, either directly or via the delegatee acting as a pass-through.
+5. The relying party validates the presentation token's signature against the intermediary's published keys, validates the audience binding, and proceeds with the action.
 6. The intermediary records the issuance in its audit trail.
 
 The relying party never speaks to the delegator's wallet, never sees the rich credentials, and never learns the delegation context.
 
 ---
 
-## 6\. Profile-Specific Field Constraints
+## 6. Profile-Specific Field Constraints
 
 These constraints apply to the platform-facing presentation token and to any other artifacts that may be visible to the relying party. They do not apply to the rich credentials inside the intermediary.
 
@@ -309,10 +325,10 @@ Under the base specification, `derivative_authority.permission.scope_domain` is 
 
 The base abstract scope vocabulary includes:
 
-- `urn:scope:guardianship:platform-account-management` — generic delegated authority over a subject's platform account  
-- `urn:scope:guardianship:data-processing-consent` — authority to grant or refuse data processing consent on behalf of a subject  
-- `urn:scope:guardianship:financial-decision` — authority over a subject's financial transactions and account configuration  
-- `urn:scope:guardianship:medical-decision` — authority over a subject's medical decisions  
+- `urn:scope:guardianship:platform-account-management` — generic delegated authority over a subject's platform account
+- `urn:scope:guardianship:data-processing-consent` — authority to grant or refuse data processing consent on behalf of a subject
+- `urn:scope:guardianship:financial-decision` — authority over a subject's financial transactions and account configuration
+- `urn:scope:guardianship:medical-decision` — authority over a subject's medical decisions
 - `urn:scope:guardianship:platform-content-controls` — authority to configure content and contact restrictions for a subject
 
 Profiles for specific deployment domains MAY register additional abstract scopes through a designated authority. Concrete deployment-specific URIs (e.g., `https://example-care-home.example/scope/foster-care-management`) MUST NOT appear in presentation tokens.
@@ -323,7 +339,7 @@ Where the underlying Relationship JWT contains a group descriptor (e.g., a polic
 
 ### 6.3 Prior Authority Reference Hiding
 
-The base specification's `prior_authority_ref` (Authority JWT, derivative\_authority section) is part of the rich credential and MUST NOT appear in the presentation token. Chain depth and prior-authority structure are visible only to the intermediary.
+The base specification's `prior_authority_ref` (Authority JWT, derivative_authority section) is part of the rich credential and MUST NOT appear in the presentation token. Chain depth and prior-authority structure are visible only to the intermediary.
 
 ### 6.4 Verified Claims Envelope Stripping
 
@@ -337,15 +353,52 @@ The relying party never sees the event type. A care home manager whose authority
 
 ### 6.6 Revocation Status Opacification
 
-Per base spec §8.3, revocation reasons are not transmitted to relying parties. Under this profile, the relying party MUST NOT receive any field that allows inference of the reason. A presentation that has been superseded due to a placement change and a presentation that has been superseded due to a planned handover are indistinguishable at the relying-party boundary.
+Per base spec §8.4, revocation reasons are not transmitted to relying parties. Under this profile, the relying party MUST NOT receive any field that allows inference of the reason. A presentation that has been superseded due to a placement change and a presentation that has been superseded due to a planned handover are indistinguishable at the relying-party boundary.
+
+**Declared status mechanism.** Base spec §8.3.1 makes the status mechanism a declared property of the deployment profile and offers a menu that includes "none — bounded by lifetime." **That option is not available under this profile.** The deployments in scope here are precisely the ones §8.3.1 excludes it for: a court order narrowing a guardianship, a placement ending, a safeguarding concern arising, an authority lapsing when a supervising body withdraws it. Each arrives between issuance and action, from a party other than the delegator, and its whole significance is that it must take effect before the next act.
+
+A conformant deployment therefore declares a status mechanism that supports commit-time evaluation, and the **intermediary is the party that operates it**. This is the privacy-preserving property of the arrangement, not an incidental one: the relying party learns only that a presentation is or is not currently honored, on the intermediary's authority, and never queries a status source that would reveal the underlying delegation's identity, issuer, or change history. A relying party MUST NOT be given a status reference that resolves outside the intermediary.
 
 ### 6.7 Stage Schedule Hiding
 
-Where the underlying Relationship uses Pattern B (single Relationship with stage-keyed eligibility, base spec §4.8), the presentation token MUST NOT contain the stage schedule. The intermediary evaluates the active stage at presentation issuance and emits a presentation reflecting only the currently-active scope.
+Where the underlying Relationship uses Pattern B (single Relationship with stage-keyed eligibility, base spec §4.8), the presentation token MUST NOT contain the stage schedule. The intermediary evaluates the active stage at presentation issuance and emits a presentation reflecting only what is currently authorized.
+
+**Terminology note (corrected for base spec v3.0).** An earlier revision of this section said the intermediary emits "the currently-active scope." That wording predates the removal of `scope_override` at base spec v3.0. Relationship-side stages now carry a descriptive `capacity_band` and never move scope; a graduated chain of scopes is carried on the Authority, either as a sequence of Authorities or as an Authority-side stage schedule whose bands name admitted RAR types (§5.5.1). The privacy requirement is unchanged and applies to both instruments: neither the Relationship's `capacity_band` schedule nor the Authority's stage schedule may appear in a presentation token, because either would disclose the subject's developmental or capacity trajectory — which for this profile's populations is among the most sensitive facts in the delegation. A presentation discloses the current position only, never the shape of the curve.
+
+The reason this matters independently of the stage schedule: a relying party that observes a sequence of presentations over time can, in principle, infer the trajectory from the changes themselves. §7 (cryptographic unlinkability) is the mitigation where that threat is in scope; absent it, the intermediary SHOULD avoid presentation re-issuance patterns that correlate to stage boundaries.
+
+### 6.8 Objective and Beneficiary Non-Disclosure
+
+The **Objective** (base spec §9) was added to the base specification at v2.0, after this profile's first revision, and is the most disclosure-sensitive component in the model for the populations in scope here. It carries the umbrella `action`, the structured `purpose` object (`kind`, `params`, `display`), and an **optional `beneficiary`**.
+
+**The Objective is rich-credential material.** A presentation token MUST NOT contain the Objective, whether it was issued as a standalone `objective+jwt` or inline in the Task. The only thing that crosses the boundary is the abstract purpose class in `authorization.purpose` (§5.2).
+
+**The beneficiary MUST NOT reach a relying party in any form.** This is the strictest constraint in this profile, and it is worth stating why it is stricter than the surrounding ones. In the deployments this profile governs, the beneficiary is the protected person: the child, the adult lacking capacity, the person under a safeguarding arrangement. The rest of §6 hides *structure* — how many delegations exist, what legal basis underlies them, how deep the chain runs. The beneficiary field does not describe structure. It identifies the individual the entire arrangement exists to protect, and it does so in a component that is inert with respect to authority (§9.2), which means **disclosing it buys the relying party nothing it can act on.** A field that cannot affect an authorization decision and can identify a vulnerable person is pure disclosure risk.
+
+Accordingly:
+
+- A presentation token MUST NOT carry `beneficiary` in any encoding, including a pseudonym derived from it.
+- Where the beneficiary and the delegation's subject are the same person, the presentation's `sub` pseudonym (§5.2) is the only permitted representation, and it remains scoped to (this delegation, this relying party).
+- The Objective's `purpose.display` — human-readable text intended for a consent surface — MUST NOT be forwarded. Free text is the most common accidental disclosure path in practice, because it is written for a human reader inside the delegation and routinely names the protected person.
+- The intermediary MUST evaluate the Objective internally where it is relevant to issuing a presentation, and MUST NOT delegate that evaluation to the relying party.
+
+**Interaction with the inert property.** Base spec §9.2 forbids any verifier from using the Objective to derive, widen, or gate authority. That rule and this section compose cleanly: because no relying party may act on the Objective, withholding it removes no capability, and this profile loses nothing by making the withholding mandatory. The Objective's audit and consent value is preserved in full inside the intermediary, where §8's audit records retain it.
+
+### 6.9 Admitted-Type Enumeration
+
+Base spec v2.4 and v3.0 relocated the enforceable "within authority" test. `scope_domain` is now **advisory** (§5.5.1) and does not by itself gate an act; the enforceable test runs over an enumeration of admitted RFC 9396 RAR types, compared by registered-identifier equality. Base spec §5.5.1 leaves the wire carriage of that enumeration to a profile.
+
+This has a direct consequence for §6.1. Abstracting `scope_domain` is now **cheap and no longer sufficient on its own**, because the abstracted value was never the enforceable one. Wherever a deployment carries an admitted-type enumeration — for a Permissioned Capabilities PDP evaluating an action before an Obligation is formed, for instance — that enumeration now carries the meaning §6.1 was written to protect.
+
+Under this profile:
+
+- An admitted-type enumeration MUST NOT appear in a presentation token. Type identifiers are registered and globally meaningful by construction, which is what makes them enforceable and equally what makes them disclosing.
+- Where a relying party's PDP must gate by admitted type, the intermediary MUST perform the admission check itself and convey only the decision, in the same manner as §6.2 resolves group membership internally.
+- Deployments registering abstract scope classes under §6.1 SHOULD also register the abstract-to-concrete type mapping with the same designated authority, so that the mapping is auditable without being disclosed at the boundary.
 
 ---
 
-## 7\. Cryptographic Unlinkability (Optional Extension)
+## 7. Cryptographic Unlinkability (Optional Extension)
 
 ### 7.1 When This Extension Applies
 
@@ -357,17 +410,17 @@ Under this extension, the platform-facing presentation is not a JWT but an anony
 
 The intermediary holds a long-lived BBS+ signing key. When a presentation is needed:
 
-1. The intermediary derives a presentation that proves possession of a valid signature over a specified set of attributes, without revealing the underlying signature itself  
-2. The presentation is bound to the relying party's audience identifier through a fresh proof-of-possession  
+1. The intermediary derives a presentation that proves possession of a valid signature over a specified set of attributes, without revealing the underlying signature itself
+2. The presentation is bound to the relying party's audience identifier through a fresh proof-of-possession
 3. Two presentations issued for two different relying parties are cryptographically unlinkable: an observer comparing them cannot determine that they were derived from the same underlying signature
 
 ### 7.3 Trade-offs
 
 This extension provides strong privacy guarantees but at significant operational cost:
 
-- **Implementation complexity** — BBS+ libraries are less mature than vanilla JWT libraries; integration requires custom work at every relying party  
-- **Verification cost** — anonymous credential verification is computationally heavier than JWT signature verification  
-- **Standardization status** — BBS+ for VCs is being standardized at IETF and W3C; the specifications are still maturing as of 2026  
+- **Implementation complexity** — BBS+ libraries are less mature than vanilla JWT libraries; integration requires custom work at every relying party
+- **Verification cost** — anonymous credential verification is computationally heavier than JWT signature verification
+- **Standardization status** — BBS+ for VCs is being standardized at IETF and W3C; the specifications are still maturing as of 2026
 - **Interoperability** — relying parties that don't support the underlying credential format cannot consume the presentation; deployments may need to support both formats during transition
 
 For most deployments that need this profile, the minimum implementation (per-relying-party JWT presentations from a regulated intermediary) is operationally adequate; cryptographic unlinkability is reserved for deployments where the threat model genuinely requires it.
@@ -378,20 +431,20 @@ A hybrid architecture is permitted: the intermediary may issue JWT presentations
 
 ---
 
-## 8\. Compliance and Audit
+## 8. Compliance and Audit
 
 ### 8.1 Required Audit Records
 
 A conforming intermediary MUST maintain the following audit records for each delegation:
 
-- A complete record of all rich credentials received from issuers, with cryptographic integrity protection  
-- A record of every presentation issuance, including:  
-  - The underlying rich credential identifiers  
-  - The audience (relying party)  
-  - The abstract scope and tier of the issued presentation  
-  - The timestamp  
-  - The opaque audit identifier returned to the relying party  
-- A record of every revocation, transfer, and lifecycle event affecting the delegation  
+- A complete record of all rich credentials received from issuers, with cryptographic integrity protection
+- A record of every presentation issuance, including:
+  - The underlying rich credential identifiers
+  - The audience (relying party)
+  - The abstract scope and tier of the issued presentation
+  - The timestamp
+  - The opaque audit identifier returned to the relying party
+- A record of every revocation, transfer, and lifecycle event affecting the delegation
 - A record of every authorized access to the audit trail (who accessed it, when, what they viewed)
 
 Audit records are retained for the period mandated by the deployment's regulatory framework. The retention period MUST NOT be shorter than the longest applicable statute of limitations for disputes arising from the delegation context.
@@ -400,11 +453,11 @@ Audit records are retained for the period mandated by the deployment's regulator
 
 The audit trail is accessible to:
 
-- The delegator (full visibility into delegations they have authorized)  
-- The delegatee (visibility into authorizations they have exercised)  
-- The data subject — i.e., the individual the delegation concerns, where distinct from the delegatee — in age-and-capacity-appropriate form, and in line with applicable privacy law (GDPR data subject rights, equivalent rights in other jurisdictions)  
-- Designated oversight bodies (e.g., Independent Reviewing Officers for child welfare, conservatorship monitors for adult guardianship, financial regulators for signing authority)  
-- The relevant regulator under defined inspection protocols  
+- The delegator (full visibility into delegations they have authorized)
+- The delegatee (visibility into authorizations they have exercised)
+- The data subject — i.e., the individual the delegation concerns, where distinct from the delegatee — in age-and-capacity-appropriate form, and in line with applicable privacy law (GDPR data subject rights, equivalent rights in other jurisdictions)
+- Designated oversight bodies (e.g., Independent Reviewing Officers for child welfare, conservatorship monitors for adult guardianship, financial regulators for signing authority)
+- The relevant regulator under defined inspection protocols
 - Law enforcement under valid legal process, with notice to affected parties where permitted
 
 The intermediary MUST NOT make audit trail data accessible to any other party, including the relying party that received the original presentation.
@@ -413,85 +466,71 @@ The intermediary MUST NOT make audit trail data accessible to any other party, i
 
 A deployment claiming conformance to this profile MAY assert conformance to GDPR Article 25 (data protection by design and by default) on the basis of the structural privacy guarantees provided by the profile. Specifically:
 
-- R1–R6 collectively implement the data minimization principle (Article 5(1)(c))  
-- The two-token architecture implements purpose limitation (Article 5(1)(b))  
-- The intermediary's audit trail custody implements integrity and confidentiality (Article 5(1)(f))  
+- R1–R6 collectively implement the data minimization principle (Article 5(1)(c))
+- The two-token architecture implements purpose limitation (Article 5(1)(b))
+- The intermediary's audit trail custody implements integrity and confidentiality (Article 5(1)(f))
 - The pseudonymous identifiers and per-relying-party scoping implement pseudonymization as a safeguard (Article 25(1))
 
-This assertion is not a substitute for a data protection impact assessment. Deployments processing special category data or operating at scale MUST conduct a DPIA per Article 35\.
+This assertion is not a substitute for a data protection impact assessment. Deployments processing special category data or operating at scale MUST conduct a DPIA per Article 35.
 
 ### 8.4 Data Subject Rights
 
 The intermediary MUST support the following data subject rights for the individual the delegation concerns:
 
-- **Right of access** — the data subject may request a complete view of the authorizations that have been exercised under delegations naming them  
-- **Right of rectification** — where a delegation contains inaccurate information about the data subject, the data subject may request correction  
-- **Right to erasure** — at the conclusion of the delegation (e.g., on reaching age of majority), the data subject may request deletion of audit records, subject to the regulatory retention requirements in §8.1  
+- **Right of access** — the data subject may request a complete view of the authorizations that have been exercised under delegations naming them
+- **Right of rectification** — where a delegation contains inaccurate information about the data subject, the data subject may request correction
+- **Right to erasure** — at the conclusion of the delegation (e.g., on reaching age of majority), the data subject may request deletion of audit records, subject to the regulatory retention requirements in §8.1
 - **Right to portability** — the data subject may request export of the audit trail in a machine-readable form
 
 These rights are exercised against the intermediary, not against the relying party. The relying party's own records (per §4.5) are subject to the relying party's own data protection obligations.
 
 ---
 
-## 9\. Worked Example: Care Home Manager → Platform
+## 9. Worked Example: Care Home Manager → Platform
 
 ### 9.1 Setup
 
-- A 12-year-old child is in residential care, under a court order assigning parental responsibility to the local authority.  
-- The local authority's care plan designates the residential care home manager as the Delegated Digital Authority Holder (DDAH) for the child's online activities.  
-- The child wishes to use a major social media platform.  
-- The platform requires verified parental consent under GDPR Article 8\.
+- A 12-year-old child is in residential care, under a court order assigning parental responsibility to the local authority.
+- The local authority's care plan designates the residential care home manager as the Delegated Digital Authority Holder (DDAH) for the child's online activities.
+- The child wishes to use a major social media platform.
+- The platform requires verified parental consent under GDPR Article 8.
 
 ### 9.2 Rich Credentials (Inside the Intermediary)
 
 The regulated verification intermediary (a child-welfare-authorized trust service operating under the framework of the local authority) holds:
 
-**Relationship JWT** — type `legal-representative`, delegator is the local authority, delegatee is the care home manager (specifically, a role-tuple group requiring "registered care home manager \+ designated by current placement"), eligibility constrained by Pattern B graduated stage schedule keyed to the child's age, with stage transitions at 8, 13, 16, and 18\.
+**Relationship JWT** — type `legal-representative`, delegator is the local authority, delegatee is the care home manager (specifically, a role-tuple group requiring "registered care home manager + designated by current placement"), eligibility constrained by Pattern B graduated stage schedule keyed to the child's age, with stage transitions at 8, 13, 16, and 18.
 
 **Authority JWT** — high-assurance profile with verified-claims envelope. Source authority asserts the local authority's parental responsibility under the court order (with concrete order number, court, and date — all visible only inside the intermediary). Derivative authority's scope domain is `urn:scope:guardianship:platform-account-management`, no further delegation permitted.
 
 **Task JWT** — issued when the manager initiates the platform account setup. Single obligation of type `data_processing_consent`. Constraints include:
-
-- Temporal: `valid_until` is calendar-bounded by the next statutory review date (six months out)  
-- Trigger-based: `expires_on_event: statutory_review_completed`  
-- Data-minimization: only specified GDPR Article 8 fields may be processed  
+- Temporal: `valid_until` is calendar-bounded by the next statutory review date (six months out)
+- Trigger-based: `expires_on_event: statutory_review_completed`
+- Data-minimization: only specified GDPR Article 8 fields may be processed
 - Conditional: only-if the child's age is within the current Care Plan's permitted band
 
 ### 9.3 What the Platform Sees
 
 When the manager initiates the account setup, the intermediary issues the following presentation token to the platform:
 
+```json
 {
-
   "iss": "https://trust.example/intermediary/childcare-12",
-
   "aud": "https://platform.example",
-
   "iat": 1714000000,
-
   "exp": 1729800000,
-
   "jti": "urn:uuid:f9e8d7c6-5b4a-3210-9876-543210fedcba",
-
   "sub": "ps-7a3b9c1d2e4f",
-
-  "delegatee\_pseudonym": "dp-8b4c0d2e3f5a",
-
+  "delegatee_pseudonym": "dp-8b4c0d2e3f5a",
   "authorization": {
-
-    "scope\_class": "urn:scope:guardianship:data-processing-consent",
-
+    "scope_class": "urn:scope:guardianship:data-processing-consent",
     "tier": "high-assurance",
-
-    "valid\_until": 1729800000,
-
+    "valid_until": 1729800000,
     "purpose": "urn:purpose:platform-account-setup"
-
   },
-
-  "audit\_id": "ai-9c5d1e3f4a6b"
-
+  "audit_id": "ai-9c5d1e3f4a6b"
 }
+```
 
 The platform validates this against the intermediary's published signing keys and proceeds with account setup.
 
@@ -499,12 +538,12 @@ The platform validates this against the intermediary's published signing keys an
 
 The platform does not learn:
 
-- That the child is in residential care (R2 — legal basis abstraction)  
-- That the delegatee is a care home manager (R3 — role anonymization)  
-- That the manager is responsible for fifteen other children at the same home (R1 — cardinality hiding)  
-- The existence of the court order, its number, or the issuing court  
-- The Care Plan or its review schedule  
-- That the credential's actual expiry is bounded by a statutory review event (R6.5 — trigger-based expiry opacification)  
+- That the child is in residential care (R2 — legal basis abstraction)
+- That the delegatee is a care home manager (R3 — role anonymization)
+- That the manager is responsible for fifteen other children at the same home (R1 — cardinality hiding)
+- The existence of the court order, its number, or the issuing court
+- The Care Plan or its review schedule
+- That the credential's actual expiry is bounded by a statutory review event (R6.5 — trigger-based expiry opacification)
 - The graduated stage schedule that means the delegatee's authority will change as the child ages (R7 — stage schedule hiding)
 
 A parent in a stable home setting up the same platform account for their own 12-year-old, and the care home manager setting up the account for the looked-after 12-year-old, produce structurally identical presentation tokens. The only differences would be in audience-bound pseudonyms and timestamps.
@@ -513,17 +552,17 @@ A parent in a stable home setting up the same platform account for their own 12-
 
 Six months later, the child has been moved to a foster placement. The intermediary:
 
-1. Receives notification from the local authority's case management system that the placement has changed  
-2. Revokes the underlying Relationship JWT (status: `revoked`, no successor reference because the new foster carer is a different DDAH; this is a hard transfer)  
-3. Issues a new Relationship JWT for the new foster carer  
-4. When the platform next checks the previous presentation token's audit id, the revocation status is `revoked` with no further detail  
+1. Receives notification from the local authority's case management system that the placement has changed
+2. Revokes the underlying Relationship JWT (status: `revoked`, no successor reference because the new foster carer is a different DDAH; this is a hard transfer)
+3. Issues a new Relationship JWT for the new foster carer
+4. When the platform next checks the previous presentation token's audit id, the revocation status is `revoked` with no further detail
 5. The new foster carer presents themselves at the platform, the platform initiates a fresh authorization, the intermediary issues a fresh presentation token
 
 The platform observes only that "the previous credential is no longer valid; a new credential has been presented." It does not learn that this was a placement change. The platform cannot distinguish this case from other cases — a guardian who has decided to use a different device, a guardian whose credential has expired and been renewed, an emergency reassignment of authority. All look the same at the relying-party boundary.
 
 ---
 
-## 10\. Open Questions
+## 10. Open Questions
 
 ### 10.1 Intermediary Discovery and Selection
 
@@ -551,23 +590,23 @@ The optional cryptographic unlinkability extension (§7) is sketched but not ful
 
 ---
 
-## 11\. References
+## 11. References
 
 ### 11.1 Normative References
 
-- **Delegated Authorization Reference Architecture v1.1** — the base specification this profile layers upon  
-- **RFC 7519** — JSON Web Token (JWT)  
-- **GDPR** — Regulation (EU) 2016/679, particularly Articles 5, 9, 25, and 35  
+- **Delegated Authorization Reference Architecture v4.0** — the base specification this profile layers upon (`specs/reference_architecture.md`)
+- **RFC 7519** — JSON Web Token (JWT)
+- **GDPR** — Regulation (EU) 2016/679, particularly Articles 5, 9, 25, and 35
 - **eIDAS 2.0** — Regulation (EU) 2024/1183 on European Digital Identity
 
 ### 11.2 Informative References
 
-- **OIDF Delegated Authority Policy Framework for Child Rights-Respecting Digital Environments**, O'Connell & Curtis, OpenID Foundation, April 2026 — the document that identified the six R-requirements and motivated this profile  
-- **W3C Verifiable Credentials Data Model 2.0**  
-- **BBS+ Signatures** — IETF draft and W3C working group  
-- **OpenID for Verifiable Presentations** — OpenID Foundation  
+- **OIDF Delegated Authority Policy Framework for Child Rights-Respecting Digital Environments**, O'Connell & Curtis, OpenID Foundation, April 2026 — the document that identified the six R-requirements and motivated this profile
+- **W3C Verifiable Credentials Data Model 2.0**
+- **BBS+ Signatures** — IETF draft and W3C working group
+- **OpenID for Verifiable Presentations** — OpenID Foundation
 - **SD-JWT (Selective Disclosure JWT)** — IETF draft
 
 ---
 
-*End of working draft v1.0.*  
+*End of working draft v1.0.*

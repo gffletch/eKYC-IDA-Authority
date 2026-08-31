@@ -2,7 +2,7 @@
 
 **Working draft v0.2 — Permissioned Capabilities, Protected Access, and Action Receipts**
 
-*Companion document to the Delegated Authorization Reference Architecture (currently v1.4) and the Privacy-Preserving Profile v1.0.*
+*Companion document to the Delegated Authorization Reference Architecture (currently v4.0) and the Privacy-Preserving Profile (currently v1.1).*
 
 *This is an exploratory draft. The execution layer is bleeding-edge work and the patterns here should be pressure-tested before any wire-protocol commitments are made.*
 
@@ -627,7 +627,7 @@ High-assurance profiles MAY tighten any of the above to REQUIRE; consumer and ag
 
 ### 6.10 Format choice — to be profiled
 
-SCITT's architecture draft uses COSE_Sign1 as the primary signature format with CBOR-encoded payloads. The rest of this framework uses JOSE/JWS with JSON payloads throughout (the three delegation JWTs, the AuthZen request and response). Two viable format profiles, deferred to a follow-up decision:
+The SCITT architecture (RFC 9943) uses COSE_Sign1 as the primary signature format with CBOR-encoded payloads. The rest of this framework uses JOSE/JWS with JSON payloads throughout (the three delegation JWTs, the AuthZen request and response). Two viable format profiles, deferred to a follow-up decision:
 
 - **COSE profile.** Direct SCITT alignment. Statement is COSE_Sign1 with CBOR-encoded payload. Sub-claim envelopes are COSE_Sign1 carried in CBOR fields of the outer statement.
 - **JOSE profile.** Consistency with the rest of the framework. Statement is JWS with JSON-encoded payload as shown in §6.4–§6.5. Sub-claim envelopes are JWS strings embedded as fields of the outer statement.
@@ -1052,7 +1052,7 @@ Mint events (§6.5, §8.3) are recorded in both trust domains' TSes — once by 
 - **RFC 8693** — OAuth 2.0 Token Exchange
 - **RFC 9396** — OAuth 2.0 Rich Authorization Requests
 - **OpenID for Verifiable Credential Issuance (OID4VCI)** — OpenID Foundation
-- **IETF SCITT (Supply Chain Integrity, Transparency, and Trust)** *(IETF Working Group)* — the transparency-service architecture and receipt format that this document adopts as the substrate for action receipts, deny receipts, mint events, and revocation receipts (§3.8, §6). Statement format choice (COSE vs JOSE profile) deferred per §6.10.
+- **RFC 9943** — An Architecture for Trustworthy and Transparent Digital Supply Chains (the SCITT architecture; Standards Track, June 2026). The transparency-service architecture and receipt format that this document adopts as the substrate for action receipts, deny receipts, mint events, and revocation receipts (§3.8, §6). Statement format choice (COSE vs JOSE profile) deferred per §6.10.
 
 ### 11.3 Informative References
 
