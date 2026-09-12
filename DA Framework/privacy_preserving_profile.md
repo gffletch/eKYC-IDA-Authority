@@ -1,6 +1,6 @@
 # Privacy-Preserving Profile for Delegated Authorization
 
-**Working draft v1.1 — Companion Profile to the Delegated Authorization Reference Architecture v4.0**
+**Working draft v1.1 — Companion Profile to the Delegated Authorization Reference Architecture v4.1**
 
 *A layered profile that makes minimum-disclosure of delegation structure binding, for deployments involving vulnerable populations or sensitive relationship types.*
 
@@ -594,7 +594,7 @@ The optional cryptographic unlinkability extension (§7) is sketched but not ful
 
 ### 11.1 Normative References
 
-- **Delegated Authorization Reference Architecture v4.0** — the base specification this profile layers upon (`specs/reference_architecture.md`)
+- **Delegated Authorization Reference Architecture v4.1** — the base specification this profile layers upon (`specs/reference_architecture.md`)
 - **RFC 7519** — JSON Web Token (JWT)
 - **GDPR** — Regulation (EU) 2016/679, particularly Articles 5, 9, 25, and 35
 - **eIDAS 2.0** — Regulation (EU) 2024/1183 on European Digital Identity

@@ -1,10 +1,17 @@
 # Delegated Authorization Reference Architecture
 
-**Working draft v4.0 — Relationship, Authority, Objective, Obligations, and Constraints**
+**Working draft v4.1 — Relationship, Authority, Objective, Obligations, and Constraints**
 
 *A framework for expressing delegated authorization across human, organizational, and AI workload contexts, building on IETF and OpenID Foundation specifications.*
 
 *This file replaces the prior `reference_architecture_v1.1.md`. Going forward, the version is carried in this document header and in the per-revision changelog below; the filename is stable across revisions.*
+
+**Changelog (v4.0 → v4.1):**
+- **§11.7 reframed — "Disputes, Appeals, and Override Mechanisms" becomes "Precedence Among Concurrent Authority Holders."** The section previously treated the subject as a deferred *dispute protocol* operating at the execution layer, after a decision. Guardianship fieldwork (§13, O'Connell & Curtis, September 2026) shows the common case is the opposite: a **precedence rule fixed at establishment time and known in advance**. Under a shared care order, a birth parent's residual parental responsibility, a local authority's statutory parental responsibility, and a carer's delegated day-to-day authority are **simultaneously live over one subject with non-nested scopes**, alongside a **standing override held by a party outside the carer's chain** (a social worker, a Director of Alternative Care) or, where responsibility is fully transferred, by a *process* (a court order). The reframed section names the three properties the model lacks — concurrency, precedence between separate delegations (distinct from §11.3's conflict rule *within* one), and, most consequentially, **discoverability**: nothing obliges a verifier to look for instruments it was not handed, so a correctly-validated Authority can be honoured in full conformance while a governing override sits unconsulted. It records the same defect seen from the Constraints side (a care plan is **subject-scoped**; Constraints as specified are **delegation-scoped**, expressible only as a Tier 2 `policy_ref` every issuer is trusted to consult), lists four candidate directions with **none adopted**, and names the interactions any resolution must preserve (§11.6, §8.2/§12.2 role-scoped anchors, §3.2 conformance level). The dispute-and-appeal question is **retained as a sub-question**, not discarded.
+- **§11.6 and §11.8 refreshed (editorial within this revision).** §11.6's multi-decision-tier quorum is now **evidenced rather than hypothesised** — the routine/strategic split is in operational use, varies by the type of the governing order, and is not independent of §11.7. §11.8's cross-border disposition is unchanged, but no longer reads as though the landscape were blank: the 1996 Hague Convention and the March 2026 EU position on cross-border recognition of protective measures and powers of representation are named as working models a trust framework operator can map onto.
+- **§13.2 gains three informative references** — both O'Connell & Curtis documents (April 2026 policy framework; September 2026 fieldwork) and the 1996 Hague Convention.
+- **Version:** additive and confined to §11 (open questions) and §13 (references). **No component, claim, wire shape, or normative rule changed, and no previously-conformant deployment is made non-conformant** → **minor** bump (v4.1). The reframe changes what the specification says is *unresolved*, not what it requires.
+- **Source:** `stress-tests/guardianship_authority_fieldwork.md` §3.1 and §7. Two open questions the fieldwork raises are recorded framework-side rather than here (`memory/PROJECT_MEMORY.md` §10.2): precedence among concurrent holders, and **provisional establishment pending ratification** (the Emergency Protection Order pattern — valid and enforceable now, most-restrictive by default, lapsing if not ratified at the first formal review).
 
 **Changelog (v3.1 → v4.0):**
 - **New §3.2 — Conformance Levels and Deployment Profiles (two axes).** The specification presented its component decomposition as a single flat structure, so a reader met all of it as the price of entry regardless of whether their deployment needed any of it. §3.2 states two **independent** axes and the rule that they are never collapsed: **Axis 1, conformance level** (L0 Compact, one JWT / one issuer / one lifetime; L1 Separated establishment, binding chain load-bearing; L2 Distributed authorship, role-scoped trust anchors load-bearing) governs *packaging*; **Axis 2, deployment profile** (agentic, high-assurance, privacy-preserving) governs *assurance* and is unchanged.
@@ -1443,13 +1450,40 @@ When a delegation chain crosses profile boundaries (e.g., a high-assurance medic
 
 Section 4.9 introduces role-tuple groups for consensus decisions. Extending this to support **multi-decision-tier quorum** (where routine decisions require one role, significant decisions require three, and strategic decisions require all named roles) is left to a future revision. The current Tier 2 policy_ref escape hatch can express this for deployments that need it.
 
-### 11.7 Disputes, Appeals, and Override Mechanisms
+As of v4.1 the requirement is **evidenced in practice rather than hypothesised**: guardianship fieldwork (§13, O'Connell & Curtis, September 2026) records the routine/strategic split operating today, and adds a second dimension — the tiering varies by the *type of the governing order*, not only by the decision. It also shows that this question is not independent of §11.7, since a threshold requiring agreement across several role-holders is itself a statement about precedence among them.
 
-Real-world delegations occasionally need to be disputed or appealed by the delegatee or by an affected third party (e.g., the data subject in a guardianship case). The base specification does not yet define a dispute protocol. This is closely related to the Permissioned Capabilities and Protected Access work, since disputes typically operate at the execution layer where capabilities are exercised.
+### 11.7 Precedence Among Concurrent Authority Holders
+
+*Reframed in v4.1. This section previously treated the subject as a deferred **dispute and appeal protocol** operating at the execution layer, after the fact. Fieldwork on guardianship authority (§13, O'Connell & Curtis, September 2026) shows that framing is too narrow: the common case is not a dispute raised after a decision, but a **precedence rule fixed at establishment time** and known in advance. The dispute-protocol question survives as a sub-question below.*
+
+The base specification models delegation as a **chain**: a Relationship, an Authority derived from it, a Task bound to both, with `prior_authority_ref` (§5.5) carrying a summary-level reference to a single predecessor. Every validation rule in §8 operates on the instruments a verifier is handed.
+
+Several real deployment domains are not chain-shaped. In a child-guardianship arrangement under a shared care order, a birth parent's residual parental responsibility, a local authority's statutory parental responsibility, and a carer's delegated day-to-day authority are **simultaneously live over the same subject**, with overlapping and **non-nested** scopes — none is a narrowing of another. Alongside them sits a **standing override held by a party who appears nowhere in the carer's chain**: a social worker who may countermand the birth parent where a safeguarding concern is identified, a Director of Alternative Care who may countermand the carer in the child's best interests, or — where parental responsibility has been fully transferred — a *process* rather than a party, since any change to the bounds requires a court order.
+
+Three things follow that the current model does not express:
+
+1. **Concurrency.** There is no way to state that several Relationships or Authorities are live over one subject, nor to enumerate them. `prior_authority_ref` is singular and describes lineage, not contemporaneity.
+2. **Precedence.** When two validly-issued Authorities speak to the same act, nothing decides which governs. §11.3's deny-overrides-allow and its source ordering resolve conflicts **between constraints within a delegation**; they do not resolve conflicts **between separate delegations** held by different parties.
+3. **Discoverability.** Most consequentially, **nothing obliges a verifier to look for instruments it was not handed.** A verifier presented with a well-formed carer Authority, validating it correctly under §8, and honouring the decision, is conformant to this specification and wrong in the governing arrangement — because the override was never in its field of view. This is a fail-open by omission, and it is the sharpest form of the problem.
+
+The same defect appears from the Constraints side. A care plan's limits are properties **of the subject**, and must hold whoever is currently exercising authority; Constraints as specified (§7) are bound to a Task issued under one Authority, and are therefore **delegation-scoped**. The only expression available today is a Tier 2 `policy_ref` (§7.4) that every issuer touching that subject is trusted to consult — which holds when issuers cooperate and fails silently when one simply does not know to look.
+
+Candidate directions, none adopted:
+
+- A subject-scoped constraint set, discoverable from the subject's identifier, that any Authority over that subject MUST incorporate.
+- A required policy reference carried on every Authority over a subject, naming the governing instrument and the precedence order it establishes.
+- An explicit override relationship on the Authority, naming the party or process that may countermand it, verifiable independently of the chain.
+- Treating precedence entirely as a deployment or trust-framework concern, with the base specification stating only that a verifier MUST establish, from its own configuration, whether concurrent instruments may exist in its domain — the minimum that closes the fail-open.
+
+Interactions to preserve in any resolution: §11.6 (the quorum threshold is itself part of the precedence rule, since a strategic decision requiring agreement across a care team *is* a precedence statement); §8.2 and §12.2 (role-scoped trust anchors — an override authority is a distinct issuing role and must not be collapsed into the Relationship or Authority issuer); and §3.2 (any discovery obligation interacts with conformance level, since L0 packages a whole delegation under one issuer).
+
+**Sub-question retained: disputes and appeals.** A delegatee or an affected third party — including the data subject — may need to challenge a delegation after the fact, which is a different problem from precedence known in advance. That remains undefined here and remains closely related to the Permissioned Capabilities and Protected Access work, since disputes typically operate at the execution layer where capabilities are exercised.
 
 ### 11.8 Cross-Border Recognition
 
 A delegation established under one jurisdiction's legal framework may need to be honored in another jurisdiction. The framework supports this in principle (the Relationship and Authority can be presented across jurisdictions), but the legal recognition rules are out of scope. Trust framework operators are expected to handle cross-border recognition through bilateral or multilateral agreements.
+
+That disposition is unchanged, but as of v4.1 the surrounding landscape is no longer hypothetical, and the section should not read as though it were. The 1996 Hague Convention on Parental Responsibility and Protection of Children already supplies an international definition of parental responsibility explicitly "capable of vesting in actors other than a birth parent," and in March 2026 EU justice ministers agreed a position on cross-border recognition of protective measures and powers of representation for vulnerable adults. Neither is a delegation protocol, and the adult-protection instrument does not automatically extend to minors — but both are working models of how a person's lawful authority is evidenced and recognized across a border, and a trust framework operator implementing this section now has concrete instruments to map onto rather than a blank sheet. See §13 (O'Connell & Curtis, September 2026).
 
 ### 11.9 Objective: Remaining Sub-Questions
 
@@ -1583,6 +1617,9 @@ Two residuals are worth naming on their own, because they are the limits most ea
 - **ISO 17442-1:2020** — Financial services — Legal entity identifier (LEI).
 - **ISO 5009** — Financial services — Official organizational roles.
 - **GLEIF Registration Authorities List** — Global Legal Entity Identifier Foundation.
+- **O'Connell, R. and A. Curtis** — *The Guardianship Gap: A qualitative analysis of the challenges of guardianship authority in digital ecosystems*, OpenID Foundation, September 2026. Qualitative fieldwork with civil servants, a social care standards authority, a safeguarding commission, and care home managers on how legal guardians exercise oversight online. Its Table 4 (authority holder, scope, and override by care-order type) is the source of the §11.7 reframe; its Table 5 (what a platform receives versus what stays outside it) independently reproduces the Privacy-Preserving Profile's disclosure split. Analysis: `stress-tests/guardianship_authority_fieldwork.md`.
+- **O'Connell, R. and A. Curtis** — *Delegated Authority Policy Framework for Child Rights-Respecting Digital Environments*, OpenID Foundation, April 2026. The policy framework preceding the fieldwork above; source of the six privacy requirements (R1–R6) the Privacy-Preserving Profile answers. Analysis: `stress-tests/child_guardianship.md`.
+- **Hague Convention on Parental Responsibility and Protection of Children** — Hague Conference on Private International Law, 1996. Cited in §11.8 for its definition of parental responsibility as a status capable of vesting in actors other than a birth parent.
 - **Cedar Policy Language** — https://www.cedarpolicy.com/
 - **Open Policy Agent (Rego)** — https://www.openpolicyagent.org/
 - **SPIFFE / SVID** — https://spiffe.io/
