@@ -2,7 +2,7 @@
 
 **Working draft v0.2 — Permissioned Capabilities, Protected Access, and Action Receipts**
 
-*Companion document to the Delegated Authorization Reference Architecture (currently v4.1) and the Privacy-Preserving Profile (currently v1.1).*
+*Companion document to the Delegated Authorization Reference Architecture (currently v4.2) and the Privacy-Preserving Profile (currently v1.2).*
 
 *This is an exploratory draft. The execution layer is bleeding-edge work and the patterns here should be pressure-tested before any wire-protocol commitments are made.*
 

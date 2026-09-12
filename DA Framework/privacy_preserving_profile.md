@@ -1,10 +1,16 @@
 # Privacy-Preserving Profile for Delegated Authorization
 
-**Working draft v1.1 — Companion Profile to the Delegated Authorization Reference Architecture v4.1**
+**Working draft v1.2 — Companion Profile to the Delegated Authorization Reference Architecture v4.2**
 
 *A layered profile that makes minimum-disclosure of delegation structure binding, for deployments involving vulnerable populations or sensitive relationship types.*
 
 *This file replaces the prior `privacy_preserving_profile_v1.0.md`. Per `CLAUDE.md` §4.7 the version is carried in this header and the changelog below; the filename is stable across revisions.*
+
+**Changelog (v1.1 → v1.2):**
+- **New §3.6 — Placement of a Policy Decision Point.** Base spec §11.7.1 (new in v4.2) proposes resolving governing instruments a verifier was not handed by retrieving them at decision time through a PIP attached to a Permissioned Capabilities PDP. Under this profile that retrieval is itself a **disclosure channel** — through its response, and through the *pattern* of queries even where each response is a bare boolean, since in the populations this profile protects the affirmative case is the minority. §3.6 states that a PDP performing or observing such retrieval MUST reside within the intermediary's trust domain and never within a relying party's; that where a relying party's PDP would need the input, the intermediary performs the retrieval and evaluation and conveys only the decision (the resolution §6.9 already applies to admitted-type gating and §6.2 to group membership); that no denial reason may distinguish an instrument-driven refusal from an ordinary one; and that "none — bounded by lifetime" is unavailable as a status mechanism for the sources involved.
+- **Records the consequence for the intermediary's role.** §3.3 describes an issuing and flattening party; a deployment adopting this pattern makes the intermediary additionally a **decision-time actor**, which is a larger operational and regulatory commitment than §3.2 contemplates and should be declared in the conformance statement. The section states the condition, and does not require the pattern.
+- **Re-based to Reference Architecture v4.2** (header and reference list). v4.1 and v4.2 changed only open questions and references, so no substantive re-base review was required.
+- **Version:** additive — one new sub-section constraining a pattern the base specification newly describes; no existing requirement changed, and no previously-conformant deployment is made non-conformant → **minor** bump (v1.2).
 
 **Changelog (v1.0 → v1.1):**
 - **Re-based from Reference Architecture v1.1 to v4.0.** v1.0 was written against the four-component base and had fallen three major revisions behind. This revision aligns it; the profile's own architecture (the intermediary, R1–R6, the two-token split) is unchanged.
@@ -169,6 +175,23 @@ A relying party trusts an intermediary's presentation credentials by:
 3. Caching trust framework state with bounded staleness to detect intermediary deauthorization
 
 The base-specification's `iss` claim on the underlying credentials is *not* visible to the relying party; the relying party sees only the intermediary's `iss`. This is a deliberate consequence of R3 (role anonymization) — the underlying issuer's identity is itself a context-leak.
+
+### 3.6 Placement of a Policy Decision Point
+
+Base spec §11.7.1 raises the possibility that a deployment resolves governing instruments it was not handed — a standing constraint over the subject, an override held by a party outside the delegation chain — by retrieving them at decision time through a Policy Information Point attached to a Permissioned Capabilities PDP (base spec §11.1). Under this profile that retrieval is not an operational detail; it determines whether the profile's guarantees survive.
+
+**The retrieval is a disclosure channel.** A query asking whether governing instruments exist for a subject discloses the subject's circumstances through its response, and through the **pattern of queries** even where each response is a bare boolean, because in the populations this profile protects the affirmative case is the minority. A relying party that observes such a lookup — or observes that one occurred at all — learns what R2 (§4.2) forbids it to learn. This is the same inference surface R1 (§4.1) addresses for cardinality, arriving through a different channel.
+
+Accordingly, under this profile:
+
+- A PDP that performs, or observes, decision-time retrieval of governing instruments for the subject **MUST reside within the intermediary's trust domain**. It MUST NOT reside within a relying party's trust domain, and a relying party MUST NOT be able to observe that such a retrieval occurred, its timing, or its outcome as distinct from the decision.
+- Where a relying party's own PDP would otherwise need such an input, **the intermediary MUST perform the retrieval and the evaluation itself and convey only the decision** — the same resolution §6.9 applies to admitted-type gating and §6.2 applies to group membership.
+- The intermediary MUST NOT reflect the existence, identity, issuer, or class of a retrieved instrument in a presentation token, in a decision response, or in any error or denial reason distinguishable from an ordinary refusal. A denial that discloses *why* the instrument denied is an R2 disclosure.
+- An unreachable or unverifiable instrument source MUST fail closed (base spec §11.7.1), and the resulting refusal MUST be indistinguishable to the relying party from any other refusal.
+- Because this profile relies on decision-time state, **"none — bounded by lifetime" is not an available status mechanism** for the sources involved (base spec §8.3.1; cf. §6.6).
+
+**Consequence for the intermediary's role.** §3.3's required functions describe issuance, presentation, lifecycle, and audit — the intermediary as an issuing and flattening party. A deployment adopting this pattern makes it additionally a **decision-time actor**, evaluating with context the relying party may not hold and returning a decision rather than a credential. That is a larger operational and regulatory commitment than §3.2 contemplates, and a deployment taking it on should say so in its conformance statement (§2.4). It is not required by this profile; it is the condition under which the base specification's PIP-mediated direction can be adopted without breaking R2.
+
 
 ---
 
@@ -594,7 +617,7 @@ The optional cryptographic unlinkability extension (§7) is sketched but not ful
 
 ### 11.1 Normative References
 
-- **Delegated Authorization Reference Architecture v4.1** — the base specification this profile layers upon (`specs/reference_architecture.md`)
+- **Delegated Authorization Reference Architecture v4.2** — the base specification this profile layers upon (`specs/reference_architecture.md`)
 - **RFC 7519** — JSON Web Token (JWT)
 - **GDPR** — Regulation (EU) 2016/679, particularly Articles 5, 9, 25, and 35
 - **eIDAS 2.0** — Regulation (EU) 2024/1183 on European Digital Identity
